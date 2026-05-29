@@ -254,7 +254,7 @@ input[type="range"]::-webkit-slider-runnable-track {
 }
 .dashboard-hero {
   text-align: center; padding: 3rem 2rem;
-  background: var(--surface); border-radius: var(--r-xl);
+  background: linear-gradient(180deg, rgba(0, 113, 227, 0.04) 0%, var(--surface) 100%); border-radius: var(--r-xl);
   box-shadow: var(--shadow-sm); margin-bottom: 1.5rem; position: relative; overflow: hidden;
 }
 .hero-bg {

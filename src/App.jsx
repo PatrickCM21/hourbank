@@ -1612,7 +1612,7 @@ function Dashboard({ state, setState }) {
       let nextDailySpent = s.dailySpent
       let nextLedger = s.ledger
 
-      if (actualDelta > 0) {
+      if (actualDelta !== 0) {
         nextProjects = s.projects.map(p => {
           if (p.id === projId) {
             const nextDailySpentMap = {
@@ -1634,8 +1634,14 @@ function Dashboard({ state, setState }) {
           [day]: (s.dailySpent[day] ?? 0) + actualDelta
         }
 
-        const desc = `Focused for ${timeFormatted} on "${proj.name}"!`;
-        const entry = { ts: new Date().toLocaleTimeString(), desc, amt: -actualDelta, type: 'neg' }
+        const absMins = Math.floor(Math.abs(elapsedSeconds) / 60)
+        const absSecs = Math.abs(elapsedSeconds) % 60
+        const timeFormattedAbs = `${absMins}:${absSecs < 10 ? '0' : ''}${absSecs}`
+
+        const desc = actualDelta > 0
+          ? `Focused for ${timeFormattedAbs} on "${proj.name}"!`
+          : `Removed ${timeFormattedAbs} Focus on "${proj.name}"`
+        const entry = { ts: new Date().toLocaleTimeString(), desc, amt: -actualDelta, type: actualDelta > 0 ? 'neg' : 'pos' }
         nextLedger = [entry, ...s.ledger]
       }
 
@@ -2128,13 +2134,15 @@ function Dashboard({ state, setState }) {
                     )
                   }
 
+                  const isDropdownOpen = openDropdownProjId === p.id;
+
                   return (
                     <div
                       key={p.id}
                       className="focus-card"
                       style={{
-                        backgroundColor: theme.bg,
-                        borderColor: theme.border,
+                        backgroundColor: isDailyCompleted ? 'rgba(52, 199, 89, 0.06)' : theme.bg,
+                        borderColor: isDailyCompleted ? 'rgba(52, 199, 89, 0.3)' : theme.border,
                         borderWidth: '1.5px',
                         borderStyle: 'solid',
                         display: 'flex',
@@ -2145,7 +2153,9 @@ function Dashboard({ state, setState }) {
                         minHeight: '180px',
                         transition: 'all 0.25s ease',
                         position: 'relative',
-                        overflow: 'visible'
+                        overflow: 'visible',
+                        opacity: isDailyCompleted ? 0.6 : 1,
+                        zIndex: isDropdownOpen ? 50 : 1
                       }}
                     >
                       <div>
@@ -2272,6 +2282,34 @@ function Dashboard({ state, setState }) {
 
                       {/* Dynamic Stopwatch & Quick log Group */}
                       <div style={{ display: 'flex', gap: '8px', zIndex: 1, marginTop: '8px' }}>
+                        {!(state.timer && state.timer.projectId === p.id) && (
+                          <button
+                            onClick={() => logStopwatchTime(p.id, -1800)} // Instantly remove 30 minutes focus (-1800 seconds)
+                            disabled={state.timer !== null}
+                            style={{
+                              width: '50px',
+                              height: '38px',
+                              background: 'rgba(255, 255, 255, 0.7)',
+                              border: `1.5px solid ${theme.border}`,
+                              color: theme.hex,
+                              borderRadius: '980px',
+                              fontSize: '12px',
+                              fontWeight: '700',
+                              cursor: state.timer !== null ? 'not-allowed' : 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              transition: 'all 0.2s',
+                              opacity: state.timer !== null ? 0.5 : 1
+                            }}
+                            onMouseEnter={e => { if (state.timer === null) e.currentTarget.style.background = '#FFFFFF' }}
+                            onMouseLeave={e => { if (state.timer === null) e.currentTarget.style.background = 'rgba(255, 255, 255, 0.7)' }}
+                            title="Instantly remove 30 minutes focus"
+                          >
+                            -30
+                          </button>
+                        )}
+
                         <button
                           onClick={() => {
                             const isCurrentStopwatch = state.timer && state.timer.projectId === p.id;
@@ -2376,10 +2414,6 @@ function Dashboard({ state, setState }) {
                 flexDirection: 'column',
                 justifyContent: 'center'
               }}>
-                <div style={{ fontSize: '10px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-3)', marginBottom: '8px' }}>
-                  Money Uninvested ({selectedDay} so far)
-                </div>
-                
                 {overallVarianceSoFar < 0 ? (
                   <>
                     <div style={{ fontSize: '24px', fontWeight: '800', color: 'var(--red)', letterSpacing: '-0.02em' }}>
@@ -2554,7 +2588,13 @@ function Dashboard({ state, setState }) {
                   <div className="ledger-desc" style={{ fontWeight: '600', fontSize: '13px', color: 'var(--text-1)' }}>{e.desc}</div>
                   <div className="ledger-time" style={{ fontSize: '11px', color: 'var(--text-3)', marginTop: '2px' }}>{e.ts}</div>
                 </div>
-                <div className={`ledger-amt ${e.type}`} style={{ fontSize: '14px', fontWeight: '700' }}>
+                <div 
+                  style={{ 
+                    fontSize: '14px', 
+                    fontWeight: '700',
+                    color: e.type === 'neg' ? 'var(--green)' : e.type === 'pos' ? 'var(--red)' : 'var(--text-3)'
+                  }}
+                >
                   {e.type === 'pos' ? '+' : e.type === 'neg' ? '−' : ''}${Math.abs(e.amt)}
                 </div>
               </div>
