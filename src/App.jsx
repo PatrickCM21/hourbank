@@ -1554,9 +1554,192 @@ function TimeCityBuilding({ project, overdrafted }) {
   )
 }
 
+function FlowingTimeCity({ projects, overdrafted }) {
+  const N = projects.length
+  
+  return (
+    <div 
+      className="surface city-breakout-card" 
+      style={{ 
+        marginTop: '2.5rem', 
+        padding: '2rem 1.5rem 1.5rem', 
+        border: '1px solid var(--border)', 
+        background: 'rgba(255, 255, 255, 0.75)', 
+        backdropFilter: 'blur(10px)',
+        position: 'relative',
+        overflow: 'visible',
+        boxShadow: 'var(--shadow-sm)'
+      }}
+    >
+      {/* City Header */}
+      <div className="section-header" style={{ marginBottom: '2.5rem', position: 'relative', zIndex: 10 }}>
+        <div>
+          <span className="section-title" style={{ fontSize: '18px', fontWeight: '700', letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <Landmark size={20} style={{ color: 'var(--accent)' }} /> 
+            Time City Panorama
+          </span>
+          <p style={{ fontSize: '12px', color: 'var(--text-3)', marginTop: '2px' }}>
+            A continuous flowing landscape of your weekly accomplishments.
+          </p>
+        </div>
+        <div style={{ display: 'flex', gap: '8px', fontSize: '10px', fontWeight: '700', textTransform: 'uppercase', color: 'var(--text-3)', background: 'var(--surface-2)', padding: '6px 12px', borderRadius: '20px' }}>
+          <span>0% 🌱</span>
+          <span>·</span>
+          <span>30% 🏡</span>
+          <span>·</span>
+          <span>70% 🏢</span>
+          <span>·</span>
+          <span>100% 🏙️</span>
+        </div>
+      </div>
+
+      {/* SVG Canvas */}
+      <div style={{ position: 'relative', width: '100%', height: '210px', overflow: 'visible' }}>
+        <svg 
+          viewBox="0 0 800 200" 
+          width="100%" 
+          height="100%" 
+          style={{ 
+            display: 'block', 
+            overflow: 'visible',
+            position: 'absolute',
+            top: '-55px', // Pull the entire continuous landscape up so buildings breakout of the card's top edge!
+            left: 0
+          }}
+        >
+          {/* Sky Gradient */}
+          <defs>
+            {overdrafted ? (
+              <linearGradient id="skyGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#2C2C2E" />
+                <stop offset="100%" stopColor="#1C1C1E" />
+              </linearGradient>
+            ) : (
+              <linearGradient id="skyGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#E5F3FF" />
+                <stop offset="60%" stopColor="#F5F5F7" />
+                <stop offset="100%" stopColor="#E8E8ED" />
+              </linearGradient>
+            )}
+          </defs>
+          
+          {/* Sky Background Path */}
+          <rect x="0" y="0" width="800" height="200" rx="16" fill="url(#skyGrad)" />
+
+          {/* Glowing Sun or Moon */}
+          {overdrafted ? (
+            <path d="M 700 25 A 15 15 0 1 0 715 40 A 12 12 0 1 1 700 25 Z" fill="#FF453A" opacity="0.45" />
+          ) : (
+            <circle cx="700" cy="35" r="16" fill="#FFCC00" filter="drop-shadow(0 0 6px rgba(255,214,10,0.5))" />
+          )}
+
+          {/* Floating Clouds */}
+          <path 
+            d="M 120 40 A 10 10 0 0 1 140 40 A 12 12 0 0 1 160 43 A 10 10 0 0 1 155 53 L 115 53 A 8 8 0 0 1 120 40 Z" 
+            fill={overdrafted ? "#6E6E73" : "#FFFFFF"} 
+            opacity={overdrafted ? "0.4" : "0.85"} 
+          />
+          <path 
+            d="M 480 25 A 8 8 0 0 1 495 25 A 10 10 0 0 1 510 28 A 8 8 0 0 1 505 36 L 475 36 A 6 6 0 0 1 480 25 Z" 
+            fill={overdrafted ? "#6E6E73" : "#FFFFFF"} 
+            opacity={overdrafted ? "0.3" : "0.8"} 
+          />
+
+          {/* Background rolling hills */}
+          <path 
+            d="M 0 160 Q 180 110 360 160 T 720 150 T 800 160 L 800 200 L 0 200 Z" 
+            fill={overdrafted ? "#48484A" : "#34C759"} 
+            opacity="0.12" 
+          />
+          
+          <path 
+            d="M 0 160 C 220 135, 380 175, 540 150 C 660 130, 740 165, 800 160 L 800 200 L 0 200 Z" 
+            fill={overdrafted ? "#3A3A3C" : "#30D158"} 
+            opacity="0.18" 
+          />
+
+          {/* Main Continuous Ground Path */}
+          <path 
+            d="M 0 160 Q 400 170 800 160 L 800 200 L 0 200 Z" 
+            fill={overdrafted ? "#2C2C2E" : "#34C759"} 
+            opacity="0.3" 
+          />
+          <line x1="0" y1="160" x2="800" y2="160" stroke={overdrafted ? "#48484A" : "#30D158"} strokeWidth="2.5" opacity="0.6" />
+
+          {/* Connecting Road linking the city together */}
+          <path 
+            d="M 0 170 C 200 160, 400 180, 600 165 C 700 158, 750 172, 800 170" 
+            fill="none" 
+            stroke={overdrafted ? "#AEAEB2" : "#AEAEB2"} 
+            strokeWidth="4" 
+            strokeDasharray="4,4" 
+            opacity="0.5" 
+          />
+
+          {/* Tiny decorative trees scattered between the buildings */}
+          {[50, 200, 380, 520, 710, 750].map((treeX, idx) => (
+            <g key={idx}>
+              <rect x={treeX} y="152" width="2" height="8" fill="#8B5A2B" />
+              <circle cx={treeX + 1} cy="148" r="5" fill={overdrafted ? "#6E6E73" : "#30D158"} opacity="0.9" />
+            </g>
+          ))}
+
+          {/* Dynamic Buildings */}
+          {projects.map((p, idx) => {
+            const pct = p.allocatedCash > 0 ? (p.spentCash / p.allocatedCash) * 100 : 0
+            const colorHex = COLORS[p.color]?.hex ?? '#0071E3'
+            
+            // Calculate spacing based on number of projects
+            const x = N > 1 ? 100 + idx * (600 / (N - 1)) : 400
+            const y = 95
+            
+            let BuildingComponent = ConstructionSiteSVG
+            if (pct >= 100) {
+              BuildingComponent = SkyscraperSVG
+            } else if (pct >= 70) {
+              BuildingComponent = ApartmentSVG
+            } else if (pct >= 30) {
+              BuildingComponent = CottageSVG
+            }
+
+            return (
+              <g key={p.id}>
+                {/* Building SVG */}
+                <g style={{ opacity: overdrafted ? 0.55 : 1, filter: overdrafted ? 'grayscale(80%)' : 'none' }}>
+                  <svg x={x - 40} y={y} width="80" height="80" style={{ overflow: 'visible' }}>
+                    <BuildingComponent colorHex={colorHex} />
+                  </svg>
+                </g>
+
+                {/* Mortgaged Warning Label Overlay */}
+                {overdrafted && (
+                  <g>
+                    <rect x={x - 30} y={120} width="60" height="15" rx="3" fill="#FF453A" opacity="0.9" />
+                    <text x={x} y={130} textAnchor="middle" fill="#FFFFFF" style={{ fontSize: '8px', fontWeight: '800', letterSpacing: '0.05em' }}>
+                      MORTGAGED
+                    </text>
+                  </g>
+                )}
+
+                {/* Building Label & Progress Indicator */}
+                <text x={x} y={180} textAnchor="middle" fill="var(--text-1)" style={{ fontSize: '11px', fontWeight: '700' }}>
+                  {p.name}
+                </text>
+                <text x={x} y={193} textAnchor="middle" fill={colorHex} style={{ fontSize: '10px', fontWeight: '600' }}>
+                  {Math.round(pct)}%
+                </text>
+              </g>
+            )
+          })}
+        </svg>
+      </div>
+    </div>
+  )
+}
+
 /* ─────────────────────────────────────────────────────
    Dashboard
-───────────────────────────────────────────────────── */
+   ───────────────────────────────────────────────────── */
 function Dashboard({ state, setState }) {
   const { totalCash, projects, cards, ledger, selectedDay,
           timer, tradeOpen, borrowOpen, excuseOpen, settingsOpen,
@@ -1672,7 +1855,16 @@ function Dashboard({ state, setState }) {
   const pastUnspentCash = DAYS.slice(0, todayIdx).reduce((sum, d) => sum + Math.max(0, (dailyCash[d] ?? 0) - (state.dailySpent?.[d] ?? 0)), 0)
   const pastUnspent = pastUnspentCash / 50
   const overdrafted = ledger.some(e => e.desc?.includes('OVERDRAFT'))
-  const mood = overdrafted ? 'anxious' : pastUnspent > 2 ? 'sad' : 'happy'
+  const todayKeyName = todayKey()
+  const todayBudget = dailyCash[todayKeyName] ?? 0
+  const todaySpent = state.dailySpent?.[todayKeyName] ?? 0
+  const todayProgressPct = todayBudget > 0 ? (todaySpent / todayBudget) * 100 : 100
+
+  const mood = overdrafted 
+    ? 'anxious' 
+    : (todayBudget > 0 && todayProgressPct === 0) 
+      ? 'sad' 
+      : 'happy'
 
   // Selected Day Standing Calculations
   const selectedIdx = DAYS.indexOf(selectedDay)
@@ -1682,9 +1874,17 @@ function Dashboard({ state, setState }) {
   const overallVarianceSoFar = overallSpentSoFar - overallBudgetSoFar
 
   const moodQuotes = {
-    happy: '"Your ledger is immaculate. I am most pleased."',
-    anxious: '"We\'ve entered overdraft! Please exercise restraint!"',
-    sad: '"Several cards remain unspent. Most troubling…"',
+    happy: todayBudget === 0 
+      ? '"Ah, a rest day! Today\'s vault is locked. Enjoy your time off!"'
+      : todayProgressPct >= 100 
+        ? '"Magnificent! Today\'s budget is fully secured and accounted for. A perfect day!"'
+        : todayProgressPct >= 50
+          ? `"Splendid momentum! You've invested $${todaySpent} ($${todayBudget - todaySpent} left). Keep going!"`
+          : `"A solid start! $${todaySpent} invested today. The ledger is progressing well."`,
+    anxious: overdrafted 
+      ? '"We\'ve entered overdraft! Please exercise restraint and balance the ledger!"'
+      : `"Emergency overdraft active! Banker Tim is very concerned!"`,
+    sad: '"No time cards spent today yet. The vault awaits your focus, partner!"'
   }
 
   // Actions
@@ -2406,19 +2606,6 @@ function Dashboard({ state, setState }) {
             <div className="tim-quote">{moodQuotes[mood]}</div>
           </div>
 
-          {/* City */}
-          <div className="sidebar-section">
-            <div className="sidebar-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Landmark size={12} /> Time City</span>
-              <span style={{ fontSize: '9px', fontWeight: '700', color: 'var(--text-3)' }}>0% 🌱 30% 🏡 70% 🏢 100% 🏙️</span>
-            </div>
-            <div className="city-bars" style={{ display: 'flex', gap: '10px', alignItems: 'flex-end', height: '90px', paddingBottom: '5px' }}>
-              {projects.map(p => (
-                <TimeCityBuilding key={p.id} project={p} overdrafted={overdrafted} />
-              ))}
-            </div>
-          </div>
-
           {/* Ledger */}
           <div className="sidebar-section">
             <div className="sidebar-label"><Receipt size={12} /> Audit Log</div>
@@ -2441,6 +2628,9 @@ function Dashboard({ state, setState }) {
           </div>
         </div>
       </div>
+
+      {/* Unified Flowing Time City Landscape Breakout */}
+      <FlowingTimeCity projects={projects} overdrafted={overdrafted} />
 
       {/* Modals */}
 
