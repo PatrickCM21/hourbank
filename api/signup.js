@@ -49,10 +49,18 @@ export default async function handler(req, res) {
   }
 
   try {
+    // Determine redirect URL from request headers (so confirmation links open the website URL instead of localhost)
+    const protocol = req.headers['x-forwarded-proto'] || 'https'
+    const host = req.headers['x-forwarded-host'] || req.headers.host
+    const emailRedirectTo = `${protocol}://${host}`
+
     // 1. Register the user in Supabase auth
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email,
-      password
+      password,
+      options: {
+        emailRedirectTo
+      }
     })
 
     if (authError || !authData.user) {
