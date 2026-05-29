@@ -2272,8 +2272,8 @@ function Dashboard({ state, setState }) {
                         
                       </div>
 
-                      {/* Dynamic Stopwatch Button */}
-                      <div style={{ display: 'flex', zIndex: 1, marginTop: '8px' }}>
+                      {/* Dynamic Stopwatch & Quick log Group */}
+                      <div style={{ display: 'flex', gap: '8px', zIndex: 1, marginTop: '8px' }}>
                         <button
                           onClick={() => {
                             const isCurrentStopwatch = state.timer && state.timer.projectId === p.id;
@@ -2292,7 +2292,7 @@ function Dashboard({ state, setState }) {
                           }}
                           disabled={state.timer !== null && state.timer.projectId !== p.id}
                           style={{
-                            width: '100%',
+                            flex: 1,
                             height: '38px',
                             background: (state.timer && state.timer.projectId === p.id) ? 'var(--red)' : theme.hex,
                             color: '#FFFFFF',
@@ -2314,9 +2314,37 @@ function Dashboard({ state, setState }) {
                         >
                           {state.timer && state.timer.projectId === p.id
                             ? `⏹️ Stop & Invest ($${Math.round((state.timer.seconds / 1800) * 50)}) [${Math.floor(state.timer.seconds / 60)}:${(state.timer.seconds % 60) < 10 ? '0' : ''}${state.timer.seconds % 60}]`
-                            : '▶️ Start Focus Stopwatch'
+                            : 'Start Focus'
                           }
                         </button>
+                        
+                        {!(state.timer && state.timer.projectId === p.id) && (
+                          <button
+                            onClick={() => logStopwatchTime(p.id, 1800)} // Instantly log 30 minutes (1800 seconds)
+                            disabled={state.timer !== null}
+                            style={{
+                              width: '50px',
+                              height: '38px',
+                              background: 'rgba(255, 255, 255, 0.7)',
+                              border: `1.5px solid ${theme.border}`,
+                              color: theme.hex,
+                              borderRadius: '980px',
+                              fontSize: '12px',
+                              fontWeight: '700',
+                              cursor: state.timer !== null ? 'not-allowed' : 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              transition: 'all 0.2s',
+                              opacity: state.timer !== null ? 0.5 : 1
+                            }}
+                            onMouseEnter={e => { if (state.timer === null) e.currentTarget.style.background = '#FFFFFF' }}
+                            onMouseLeave={e => { if (state.timer === null) e.currentTarget.style.background = 'rgba(255, 255, 255, 0.7)' }}
+                            title="Instantly log 30 minutes focus"
+                          >
+                            30
+                          </button>
+                        )}
                       </div>
 
                     </div>
@@ -2362,9 +2390,6 @@ function Dashboard({ state, setState }) {
                     <div style={{ fontSize: '18px', fontWeight: '700', color: 'var(--text-1)', marginTop: '4px' }}>
                       -{((Math.abs(overallVarianceSoFar)) / 100).toFixed(1)} hours
                     </div>
-                    <div style={{ fontSize: '12px', color: 'var(--text-2)', marginTop: '8px', lineHeight: '1.4' }}>
-                      You are currently behind your budget up to {selectedDay} by <strong>${Math.abs(overallVarianceSoFar)}</strong>. Click "Pay Down" to reduce debt!
-                    </div>
                   </>
                 ) : (
                   <>
@@ -2373,9 +2398,6 @@ function Dashboard({ state, setState }) {
                     </div>
                     <div style={{ fontSize: '18px', fontWeight: '700', color: 'var(--text-1)', marginTop: '4px' }}>
                       +{((overallVarianceSoFar) / 100).toFixed(1)} hours
-                    </div>
-                    <div style={{ fontSize: '12px', color: 'var(--text-2)', marginTop: '8px', lineHeight: '1.4' }}>
-                      Splendid! You are ahead of your budget up to {selectedDay} by <strong>${overallVarianceSoFar}</strong>. Your focus is flourishing!
                     </div>
                   </>
                 )}
@@ -2403,7 +2425,7 @@ function Dashboard({ state, setState }) {
                       borderRadius: 'var(--r-sm)', 
                       padding: '8px 12px',
                       display: 'grid',
-                      gridTemplateColumns: '1.3fr 1.1fr 1fr',
+                      gridTemplateColumns: '1.4fr 1fr 1fr',
                       alignItems: 'center',
                       gap: '8px'
                     }}>
@@ -2413,43 +2435,22 @@ function Dashboard({ state, setState }) {
                           <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: cTheme.hex, display: 'inline-block' }} />
                           {p.name}
                         </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
-                          <div style={{ width: '45px', height: '3px', background: 'var(--border)', borderRadius: '1.5px', overflow: 'hidden' }}>
-                            <div style={{ width: `${pct}%`, height: '100%', backgroundColor: cTheme.hex, borderRadius: '1.5px' }} />
-                          </div>
-                          <span style={{ fontSize: '9px', color: 'var(--text-3)' }}>{pct}%</span>
-                        </div>
                       </div>
 
                       {/* Variance */}
                       <div>
                         {isDebt ? (
-                          <div style={{ display: 'inline-flex', flexDirection: 'column' }}>
-                            <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--red)' }}>
-                              🚨 −${Math.abs(variance)}
-                            </span>
-                            <span style={{ fontSize: '9px', color: 'var(--text-3)' }}>
-                              ({(Math.abs(variance) / 100).toFixed(1)}h debt)
-                            </span>
-                          </div>
+                          <span style={{ fontSize: '12px', fontWeight: '700', color: 'var(--red)' }}>
+                            🚨 −${Math.abs(variance)}
+                          </span>
                         ) : isSurplus ? (
-                          <div style={{ display: 'inline-flex', flexDirection: 'column' }}>
-                            <span style={{ fontSize: '11px', fontWeight: '700', color: '#1A7A33' }}>
-                              ⚡ +${variance}
-                            </span>
-                            <span style={{ fontSize: '9px', color: 'var(--text-3)' }}>
-                              ({(variance / 100).toFixed(1)}h over)
-                            </span>
-                          </div>
+                          <span style={{ fontSize: '12px', fontWeight: '700', color: '#1A7A33' }}>
+                            ⚡ +${variance}
+                          </span>
                         ) : (
-                          <div style={{ display: 'inline-flex', flexDirection: 'column' }}>
-                            <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--accent)' }}>
-                              ✓ Balanced
-                            </span>
-                            <span style={{ fontSize: '9px', color: 'var(--text-3)' }}>
-                              (0h deviation)
-                            </span>
-                          </div>
+                          <span style={{ fontSize: '12px', fontWeight: '700', color: 'var(--accent)' }}>
+                            ✓ Balanced
+                          </span>
                         )}
                       </div>
 
