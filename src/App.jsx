@@ -78,7 +78,18 @@ function performWeeklyRollover(s) {
 
   const totalSpent = s.projects?.reduce((a, p) => a + (p.spentCash ?? 0), 0) ?? 0
   const overdrafted = s.ledger?.some(e => e.desc?.includes('OVERDRAFT')) ?? false
-  const mood = overdrafted ? 'anxious' : 'happy' // Mood is anxious if overdrafted, otherwise happy for simplified rollover
+  const totalBudget = s.totalCash ?? 0
+  const completionPct = totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 100
+
+  const mood = overdrafted
+    ? 'sad'
+    : completionPct === 0
+      ? 'sad'
+      : completionPct < 50
+        ? 'curious'
+        : completionPct < 100
+          ? 'happy'
+          : 'ecstatic'
 
   const historyEntry = {
     id: `w-${Date.now()}`,
@@ -373,21 +384,29 @@ function WheelPicker({ items, value, onChange, width = 80, label, unit }) {
 ───────────────────────────────────────────────────── */
 function Tim({ mood = 'happy' }) {
   const mouths = {
-    happy: 'M 36 58 Q 44 65 52 58',
-    anxious: 'M 36 60 Q 44 60 52 60',
     sad: 'M 36 63 Q 44 56 52 63',
+    curious: 'M 38 59 Q 44 58 50 59',
+    happy: 'M 36 58 Q 44 65 52 58',
+    ecstatic: 'M 35 56 Q 44 69 53 56'
   }
   const browL = {
-    happy: 'M 26 36 Q 32 33 38 36',
-    anxious: 'M 26 34 Q 32 38 38 36',
     sad: 'M 26 35 Q 32 39 38 37',
+    curious: 'M 26 31 Q 32 29 38 33',
+    happy: 'M 26 36 Q 32 33 38 36',
+    ecstatic: 'M 26 34 Q 32 29 38 34'
   }
   const browR = {
-    happy: 'M 50 36 Q 56 33 62 36',
-    anxious: 'M 50 36 Q 56 38 62 34',
     sad: 'M 50 37 Q 56 39 62 35',
+    curious: 'M 50 36 Q 56 37 62 36',
+    happy: 'M 50 36 Q 56 33 62 36',
+    ecstatic: 'M 50 34 Q 56 29 62 34'
   }
-  const colors = { happy: '#30D158', anxious: '#FF9F0A', sad: '#FF453A' }
+  const colors = { 
+    sad: '#FF453A', 
+    curious: '#FF9500', 
+    happy: '#0071E3', 
+    ecstatic: '#30D158' 
+  }
   return (
     <svg viewBox="0 0 88 88" fill="none" xmlns="http://www.w3.org/2000/svg">
       {/* Background circle */}
@@ -1151,10 +1170,10 @@ function HistoryModal({ state, setState, onClose }) {
                           fontWeight: '600', 
                           padding: '4px 8px', 
                           borderRadius: '980px',
-                          background: h.mood === 'happy' ? 'var(--green-soft)' : 'var(--red-soft)',
-                          color: h.mood === 'happy' ? '#1A7A33' : 'var(--red)'
+                          background: (h.mood === 'happy' || h.mood === 'ecstatic') ? 'var(--green-soft)' : h.mood === 'curious' ? 'var(--accent-soft)' : 'var(--red-soft)',
+                          color: (h.mood === 'happy' || h.mood === 'ecstatic') ? '#1A7A33' : h.mood === 'curious' ? 'var(--accent)' : 'var(--red)'
                         }}>
-                          {h.mood === 'happy' ? '😌 Happy' : '😬 Anxious'}
+                          {h.mood === 'ecstatic' ? '🤩 Ecstatic' : h.mood === 'happy' ? '😌 Happy' : h.mood === 'curious' ? '🤔 Curious' : h.mood === 'sad' ? '😔 Sad' : '😬 Anxious'}
                         </span>
                         <span style={{ 
                           fontSize: '11px', 
@@ -1592,22 +1611,6 @@ function Dashboard({ state, setState }) {
       const secondsStr = (elapsedSeconds % 60) < 10 ? '0' : ''
       const timeFormatted = `${minutesStr}:${secondsStr}${elapsedSeconds % 60}`
 
-      // Sound effect chime
-      try {
-        const ctx = new (window.AudioContext || window.webkitAudioContext)();
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.frequency.setValueAtTime(880, ctx.currentTime);
-        gain.gain.setValueAtTime(0.3, ctx.currentTime);
-        osc.start();
-        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
-        osc.stop(ctx.currentTime + 0.5);
-      } catch (e) {
-        console.log("Audio failed to play", e);
-      }
-
       let nextProjects = s.projects
       let nextDailySpent = s.dailySpent
       let nextLedger = s.ledger
@@ -1717,11 +1720,15 @@ function Dashboard({ state, setState }) {
   const todaySpent = state.dailySpent?.[todayKeyName] ?? 0
   const todayProgressPct = todayBudget > 0 ? (todaySpent / todayBudget) * 100 : 100
 
-  const mood = overdrafted 
-    ? 'anxious' 
-    : (todayBudget > 0 && todayProgressPct === 0) 
-      ? 'sad' 
-      : 'happy'
+  const mood = overdrafted
+    ? 'sad'
+    : (todayBudget > 0 && todayProgressPct === 0)
+      ? 'sad'
+      : (todayProgressPct > 0 && todayProgressPct < 50)
+        ? 'curious'
+        : (todayProgressPct >= 50 && todayProgressPct < 100)
+          ? 'happy'
+          : 'ecstatic'
 
   // Selected Day Standing Calculations
   const selectedIdx = DAYS.indexOf(selectedDay)
@@ -1731,17 +1738,14 @@ function Dashboard({ state, setState }) {
   const overallVarianceSoFar = overallSpentSoFar - overallBudgetSoFar
 
   const moodQuotes = {
-    happy: todayBudget === 0 
-      ? '"Ah, a rest day! Today\'s vault is locked. Enjoy your time off!"'
-      : todayProgressPct >= 100 
-        ? '"Magnificent! Today\'s budget is fully secured and accounted for. A perfect day!"'
-        : todayProgressPct >= 50
-          ? `"Splendid momentum! You've invested $${todaySpent} ($${todayBudget - todaySpent} left). Keep going!"`
-          : `"A solid start! $${todaySpent} invested today. The ledger is progressing well."`,
-    anxious: overdrafted 
+    sad: overdrafted
       ? '"We\'ve entered overdraft! Please exercise restraint and balance the ledger!"'
-      : `"Emergency overdraft active! Banker Tim is very concerned!"`,
-    sad: '"No time cards spent today yet. The vault awaits your focus, partner!"'
+      : '"No time cards spent today yet. The vault awaits your focus, partner!"',
+    curious: `"A solid start! $${todaySpent} invested today. The ledger is progressing well. What are we studying next?"`,
+    happy: `"Splendid momentum! You've invested $${todaySpent} ($${todayBudget - todaySpent} left). Keep going!"`,
+    ecstatic: todayBudget === 0 
+      ? '"Ah, a rest day! Today\'s vault is locked. Enjoy your time off!"'
+      : '"Magnificent! Today\'s budget is fully secured and accounted for. A perfect day!"'
   }
 
   // Actions
@@ -1844,8 +1848,15 @@ function Dashboard({ state, setState }) {
         </div>
         <div className="stat-card">
           <div className="stat-label">Tim's Mood</div>
-          <div className={`stat-val ${mood === 'happy' ? 'green' : mood === 'anxious' ? '' : 'red'}`} style={{ fontSize: '1.1rem', marginTop: 2 }}>
-            {mood === 'happy' ? '😌 Happy' : mood === 'anxious' ? '😬 Anxious' : '😔 Sad'}
+          <div 
+            className="stat-val" 
+            style={{ 
+              fontSize: '1.1rem', 
+              marginTop: 2,
+              color: mood === 'ecstatic' ? 'var(--green)' : mood === 'happy' ? 'var(--accent)' : mood === 'curious' ? '#FF9500' : 'var(--red)'
+            }}
+          >
+            {mood === 'ecstatic' ? '🤩 Ecstatic' : mood === 'happy' ? '😌 Happy' : mood === 'curious' ? '🤔 Curious' : '😔 Sad'}
           </div>
         </div>
         <div className="stat-card">
