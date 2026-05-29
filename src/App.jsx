@@ -1473,25 +1473,6 @@ function FlowingTimeCity({ projects, overdrafted }) {
             left: 0
           }}
         >
-          {/* Sky Gradient */}
-          <defs>
-            {overdrafted ? (
-              <linearGradient id="skyGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#2C2C2E" />
-                <stop offset="100%" stopColor="#1C1C1E" />
-              </linearGradient>
-            ) : (
-              <linearGradient id="skyGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#E5F3FF" />
-                <stop offset="60%" stopColor="#F5F5F7" />
-                <stop offset="100%" stopColor="#E8E8ED" />
-              </linearGradient>
-            )}
-          </defs>
-          
-          {/* Sky Background Path */}
-          <rect x="0" y="0" width="800" height="200" rx="16" fill="url(#skyGrad)" />
-
           {/* Glowing Sun or Moon */}
           {overdrafted ? (
             <path d="M 700 25 A 15 15 0 1 0 715 40 A 12 12 0 1 1 700 25 Z" fill="#FF453A" opacity="0.45" />
