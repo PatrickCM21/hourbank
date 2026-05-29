@@ -1571,6 +1571,7 @@ function Dashboard({ state, setState }) {
           timer, tradeOpen, borrowOpen, excuseOpen, settingsOpen,
           loginOpen, user, token, syncStatus } = state
   const [openDropdownProjId, setOpenDropdownProjId] = useState(null)
+  const [customMinutes, setCustomMinutes] = useState({})
   // Calculate dailyCash dynamically based on daily project allocations
   const dailyCash = DAYS.reduce((acc, d) => {
     acc[d] = projects.reduce((sum, p) => sum + (p.dailyAllocations?.[d] ?? 0), 0)
@@ -1848,6 +1849,83 @@ function Dashboard({ state, setState }) {
             <span className="section-title"><Layers size={16} style={{ verticalAlign: 'middle', marginRight: 6 }} />Your Focus Projects</span>
             <span style={{ fontSize: 13, color: 'var(--text-3)' }}>{projects.length} Active Targets</span>
           </div>
+      {state.timer && (
+        <div style={{
+          background: 'linear-gradient(135deg, rgba(0, 113, 227, 0.05) 0%, rgba(48, 209, 88, 0.05) 100%)',
+          border: '1.5px solid var(--border-strong)',
+          borderRadius: 'var(--r)',
+          padding: '1.25rem',
+          marginBottom: '1.5rem',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '12px',
+          boxShadow: 'var(--shadow-xs)'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+            <div>
+              <div style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', color: 'var(--accent)', letterSpacing: '0.05em' }}>
+                ⏱️ Active Focus Session
+              </div>
+              <div style={{ fontSize: '16px', fontWeight: '700', color: 'var(--text-1)', marginTop: '2px' }}>
+                {projects.find(p => p.id === state.timer.projectId)?.name || 'Focus Project'}
+              </div>
+            </div>
+            <div style={{ fontSize: '24px', fontWeight: '800', fontFamily: 'monospace', color: 'var(--text-1)' }}>
+              {Math.floor(state.timer.seconds / 60)}:{(state.timer.seconds % 60) < 10 ? '0' : ''}{state.timer.seconds % 60}
+            </div>
+          </div>
+
+          {/* Progress bar */}
+          <div style={{ width: '100%', height: '6px', background: 'var(--surface-3)', borderRadius: '3px', overflow: 'hidden' }}>
+            <div style={{
+              width: `${((state.timer.originalMinutes * 60 - state.timer.seconds) / (state.timer.originalMinutes * 60)) * 100}%`,
+              height: '100%',
+              background: 'linear-gradient(90deg, var(--accent) 0%, var(--green) 100%)',
+              borderRadius: '3px',
+              transition: 'width 1s linear'
+            }} />
+          </div>
+
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '4px' }}>
+            <button
+              className="btn btn-secondary btn-sm"
+              onClick={() => setState(s => ({
+                ...s,
+                timer: s.timer ? { ...s.timer, running: !s.timer.running } : null
+              }))}
+              style={{ flex: 1, minWidth: '80px' }}
+            >
+              {state.timer.running ? '⏸️ Pause' : '▶️ Resume'}
+            </button>
+
+            <button
+              className="btn btn-primary btn-sm"
+              onClick={() => {
+                const currentTimer = state.timer;
+                if (!currentTimer) return;
+                logFocusTime(currentTimer.projectId, currentTimer.originalMinutes);
+                setState(s => ({ ...s, timer: null }));
+              }}
+              style={{ flex: 2, background: 'var(--green)', minWidth: '130px' }}
+            >
+              💰 Invest Focus Time
+            </button>
+
+            <button
+              className="btn btn-secondary btn-sm"
+              onClick={() => {
+                if (confirm('Cancel focus timer? Progress will not be logged.')) {
+                  setState(s => ({ ...s, timer: null }));
+                }
+              }}
+              style={{ color: 'var(--red)', borderColor: 'var(--red)' }}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
           {projects.length === 0
             ? <div className="deck-empty">No projects active. Open Settings to add some!</div>
             : <div className="cards-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '16px' }}>
@@ -2185,68 +2263,121 @@ function Dashboard({ state, setState }) {
                         </div>
                       </div>
                       
-                      {/* Direct Themed Focus Log Buttons */}
-                      <div style={{ display: 'flex', gap: '8px', zIndex: 1 }}>
-                        <button
-                          onClick={() => logFocusTime(p.id, -30)}
-                          disabled={dailySp <= 0}
+                      
+                      {/* Custom Input for Minutes */}
+                      <div style={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'space-between',
+                        gap: '8px', 
+                        background: 'rgba(255, 255, 255, 0.5)',
+                        border: '1px solid var(--border)',
+                        padding: '6px 10px',
+                        borderRadius: '12px',
+                        marginTop: '8px'
+                      }}>
+                        <span style={{ fontSize: '11px', fontWeight: '600', color: 'var(--text-2)' }}>Minutes:</span>
+                        <input
+                          type="number"
+                          min="1"
+                          max="480"
+                          value={customMinutes[p.id] ?? 30}
+                          onChange={(e) => {
+                            const val = Math.max(1, parseInt(e.target.value) || 0)
+                            setCustomMinutes(s => ({ ...s, [p.id]: val }))
+                          }}
                           style={{
-                            flex: '1',
+                            width: '55px',
+                            border: '1px solid var(--border-strong)',
+                            borderRadius: '6px',
+                            padding: '3px 6px',
+                            fontSize: '12px',
+                            fontWeight: '700',
+                            textAlign: 'center',
+                            outline: 'none',
+                            color: 'var(--text-1)',
+                            background: '#FFFFFF'
+                          }}
+                        />
+                      </div>
+
+                      {/* Log / Timer Buttons */}
+                      <div style={{ display: 'flex', gap: '8px', zIndex: 1, marginTop: '4px' }}>
+                        <button
+                          onClick={() => {
+                            const mins = customMinutes[p.id] ?? 30;
+                            logFocusTime(p.id, mins);
+                          }}
+                          style={{
+                            flex: '1.2',
                             height: '34px',
                             border: `1.5px solid ${theme.border}`,
                             color: theme.hex,
-                            background: 'rgba(255,255,255,0.4)',
+                            background: 'rgba(255,255,255,0.7)',
                             borderRadius: '980px',
-                            fontSize: '12px',
-                            fontWeight: '600',
+                            fontSize: '11px',
+                            fontWeight: '700',
                             cursor: 'pointer',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            gap: '4px',
-                            transition: 'all 0.2s',
-                            opacity: dailySp <= 0 ? 0.4 : 1
+                            gap: '2px',
+                            transition: 'all 0.2s'
                           }}
-                          onMouseEnter={e => { if (dailySp > 0) e.currentTarget.style.background = theme.bg }}
-                          onMouseLeave={e => { if (dailySp > 0) e.currentTarget.style.background = 'rgba(255,255,255,0.4)' }}
-                          title="Undo 30 minutes of focus today"
+                          onMouseEnter={e => e.currentTarget.style.background = '#FFFFFF'}
+                          onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.7)'}
+                          title={`Log ${customMinutes[p.id] ?? 30} minutes instantly without a timer`}
                         >
-                          - 30m
+                          ⚡ Instant
                         </button>
                         
                         <button
-                          onClick={() => logFocusTime(p.id, 30)}
+                          onClick={() => {
+                            const mins = customMinutes[p.id] ?? 30;
+                            setState(s => ({
+                              ...s,
+                              timer: {
+                                projectId: p.id,
+                                seconds: mins * 60,
+                                originalMinutes: mins,
+                                running: true
+                              }
+                            }));
+                          }}
+                          disabled={state.timer !== null}
                           style={{
-                            flex: '2.5',
+                            flex: '2',
                             height: '34px',
                             background: theme.hex,
                             color: '#FFFFFF',
                             border: 'none',
                             borderRadius: '980px',
-                            fontSize: '12px',
-                            fontWeight: '600',
-                            cursor: 'pointer',
+                            fontSize: '11px',
+                            fontWeight: '700',
+                            cursor: state.timer !== null ? 'not-allowed' : 'pointer',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            gap: '6px',
+                            gap: '4px',
                             boxShadow: `0 2px 6px ${theme.border}`,
-                            transition: 'all 0.2s'
+                            transition: 'all 0.2s',
+                            opacity: state.timer !== null ? 0.5 : 1
                           }}
-                          onMouseEnter={e => e.currentTarget.style.opacity = 0.9}
-                          onMouseLeave={e => e.currentTarget.style.opacity = 1}
-                          title="Log 30 minutes of focus today"
+                          onMouseEnter={e => { if (state.timer === null) e.currentTarget.style.opacity = 0.9 }}
+                          onMouseLeave={e => { if (state.timer === null) e.currentTarget.style.opacity = 1 }}
+                          title={state.timer !== null ? 'Another timer is already running' : `Start a countdown timer for ${customMinutes[p.id] ?? 30} minutes`}
                         >
-                          <Clock size={12} /> + 30m Focus
+                          ⏱️ Start Timer
                         </button>
                       </div>
+
                     </div>
                   )
                 })}
               </div>
           }
         </div>
-      </div>
+      
 
           {/* Focus Debt & Statistics Ledger */}
           <div className="surface" style={{ padding: '1.5rem', border: '1px solid var(--border)', background: 'rgba(255, 255, 255, 0.75)', backdropFilter: 'blur(10px)' }}>
@@ -2426,6 +2557,7 @@ function Dashboard({ state, setState }) {
               </div>
             </div>
           </div>
+      </div>
 
       {/* Unified Flowing Time City Landscape Breakout */}
       <FlowingTimeCity overdrafted={overdrafted} dayBudget={dayBudget} daySpent={daySpent} />
@@ -2514,6 +2646,87 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
   }, [state])
+
+  // Global Focus Timer ticking effect
+  useEffect(() => {
+    if (!state.timer || !state.timer.running) return;
+
+    const interval = setInterval(() => {
+      setState(s => {
+        if (!s.timer || !s.timer.running) return s;
+        if (s.timer.seconds <= 1) {
+          // Timer finished! Complete focus log
+          clearInterval(interval);
+          
+          const proj = s.projects.find(p => p.id === s.timer.projectId);
+          if (!proj) return { ...s, timer: null };
+
+          const day = s.selectedDay;
+          const currentSpent = proj.dailySpent?.[day] ?? 0;
+          const minutes = s.timer.originalMinutes;
+          const cashDelta = Math.round((minutes / 30) * 50);
+          const newSpent = Math.max(0, currentSpent + cashDelta);
+          const actualDelta = newSpent - currentSpent;
+
+          // Sound effect chime
+          try {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.frequency.setValueAtTime(880, ctx.currentTime);
+            gain.gain.setValueAtTime(0.3, ctx.currentTime);
+            osc.start();
+            gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
+            osc.stop(ctx.currentTime + 0.5);
+          } catch (e) {
+            console.log("Audio failed to play", e);
+          }
+
+          let nextProjects = s.projects;
+          let nextDailySpent = s.dailySpent;
+          let nextLedger = s.ledger;
+
+          if (actualDelta > 0) {
+            nextProjects = s.projects.map(p => {
+              if (p.id === s.timer.projectId) {
+                const nextDailySpentMap = { ...p.dailySpent, [day]: newSpent };
+                const nextWeeklySpent = Object.values(nextDailySpentMap).reduce((a, b) => a + b, 0);
+                return { ...p, dailySpent: nextDailySpentMap, spentCash: nextWeeklySpent };
+              }
+              return p;
+            });
+            nextDailySpent = { ...s.dailySpent, [day]: (s.dailySpent[day] ?? 0) + actualDelta };
+            const desc = `Completed ${minutes}m Focus Timer on "${proj.name}"!`;
+            const entry = { ts: new Date().toLocaleTimeString(), desc, amt: -actualDelta, type: 'neg' };
+            nextLedger = [entry, ...s.ledger];
+          }
+
+          alert(`🎉 Focus completed! You focused for ${minutes} minutes on "${proj.name}" and secured ${actualDelta} budget!`);
+
+          return {
+            ...s,
+            projects: nextProjects,
+            dailySpent: nextDailySpent,
+            ledger: nextLedger,
+            timer: null
+          };
+        }
+        
+        return {
+          ...s,
+          timer: {
+            ...s.timer,
+            seconds: s.timer.seconds - 1
+          }
+        };
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [state.timer?.running, state.timer?.seconds]);
+
 
   const refreshSession = async (refreshToken) => {
     try {
