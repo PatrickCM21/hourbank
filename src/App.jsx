@@ -298,6 +298,7 @@ function makeDefault() {
     loginOpen: false,
     user: null,
     token: null,
+    refreshToken: null,
     syncStatus: 'synced'
   }
 }
@@ -403,15 +404,7 @@ function Onboarding({ state, setState }) {
               your personal time accountant. Together we shall ensure every minute
               earns its keep."
             </p>
-            <div style={{ marginTop: '1.25rem', display: 'flex', justifyContent: 'center' }}>
-              <button
-                className="btn btn-secondary btn-sm"
-                onClick={() => setState(s => ({ ...s, loginOpen: true }))}
-                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-              >
-                🔑 Already have a Vault ID? Sign In
-              </button>
-            </div>
+            {/* Redundant login trigger removed as auth is forced at startup */}
             <div style={{ marginTop: '1.5rem', display: 'flex', justifyContent: 'center', gap: 24, flexWrap: 'wrap' }}>
               {['30 min = $50', '1 hr = $100', 'Spend cards = grow'].map(t => (
                 <div key={t} style={{ background: 'var(--accent-soft)', color: 'var(--accent)', borderRadius: 'var(--r-sm)', padding: '6px 14px', fontSize: 13, fontWeight: 600 }}>{t}</div>
@@ -547,7 +540,6 @@ function Onboarding({ state, setState }) {
           </button>
         </div>
       </div>
-      {state.loginOpen && <LoginModal state={state} setState={setState} onClose={() => setState(s => ({ ...s, loginOpen: false }))} />}
     </div>
   )
 }
@@ -908,17 +900,20 @@ function SettingsModal({ state, setState, onClose }) {
   )
 }
 
-function LoginModal({ state, setState, onClose }) {
+function LoginModal({ state, setState, onClose, forced = false }) {
   const [isSignUp, setIsSignUp] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState(null)
+  const [info, setInfo] = useState(null)
   const [loading, setLoading] = useState(false)
+  const [shouldShake, setShouldShake] = useState(false)
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (!email || !password) { setError('Please enter both email and password.'); return }
     setError(null)
+    setInfo(null)
     setLoading(true)
 
     const endpoint = isSignUp ? '/api/signup' : '/api/login'
@@ -935,17 +930,25 @@ function LoginModal({ state, setState, onClose }) {
         throw new Error(data.error || 'Failed to authenticate')
       }
 
+      if (isSignUp && !data.session) {
+        setInfo(data.message || 'Signup successful! Please check your email for a confirmation link.')
+        return
+      }
+
       // Success! Update global state with session & fetched cloud state
       setState(s => ({
         ...s,
         ...data.state, // Load the synced state from cloud
         token: data.session.access_token,
+        refreshToken: data.session.refresh_token,
         user: data.session.user,
         loginOpen: false,
         syncStatus: 'synced'
       }))
     } catch (err) {
       setError(err.message)
+      setShouldShake(true)
+      setTimeout(() => setShouldShake(false), 500)
     } finally {
       setLoading(false)
     }
@@ -953,10 +956,20 @@ function LoginModal({ state, setState, onClose }) {
 
   return (
     <div className="overlay">
-      <div className="modal-sheet" style={{ maxWidth: '380px' }}>
+      <style>{`
+        @keyframes shake {
+          0%, 100% { transform: translateX(0); }
+          10%, 30%, 50%, 70%, 90% { transform: translateX(-6px); }
+          20%, 40%, 60%, 80% { transform: translateX(6px); }
+        }
+        .shake-element {
+          animation: shake 0.5s ease-in-out;
+        }
+      `}</style>
+      <div className={`modal-sheet ${shouldShake ? 'shake-element' : ''}`} style={{ maxWidth: '380px' }}>
         <div className="modal-header" style={{ marginBottom: '1.25rem' }}>
           <h3>🔑 HourBank Vault ID</h3>
-          <button className="btn btn-icon btn-sm" onClick={onClose}><X size={16} /></button>
+          {!forced && <button className="btn btn-icon btn-sm" onClick={onClose}><X size={16} /></button>}
         </div>
 
         {/* Tab Selection */}
@@ -971,7 +984,7 @@ function LoginModal({ state, setState, onClose }) {
               boxShadow: !isSignUp ? 'var(--shadow-xs)' : 'none',
               fontWeight: 600
             }}
-            onClick={() => { setIsSignUp(false); setError(null) }}
+            onClick={() => { setIsSignUp(false); setError(null); setInfo(null) }}
           >
             Sign In
           </button>
@@ -985,13 +998,19 @@ function LoginModal({ state, setState, onClose }) {
               boxShadow: isSignUp ? 'var(--shadow-xs)' : 'none',
               fontWeight: 600
             }}
-            onClick={() => { setIsSignUp(true); setError(null) }}
+            onClick={() => { setIsSignUp(true); setError(null); setInfo(null) }}
           >
             Sign Up
           </button>
         </div>
 
         <form onSubmit={handleSubmit}>
+          {info && (
+            <div className="feedback-pill ok" style={{ fontSize: '12px', lineHeight: '1.4', marginBottom: '1rem', backgroundColor: 'rgba(48, 176, 199, 0.08)', color: 'var(--accent)', padding: '8px 12px', borderRadius: '8px', border: '1px solid rgba(48, 176, 199, 0.2)' }}>
+              ℹ️ {info}
+            </div>
+          )}
+
           {error && (
             <div className="feedback-pill err" style={{ fontSize: '12px', lineHeight: '1.4', marginBottom: '1rem', backgroundColor: 'var(--red-soft)', color: 'var(--red)', padding: '8px 12px', borderRadius: '8px' }}>
               ⚠️ {error}
@@ -1008,9 +1027,12 @@ function LoginModal({ state, setState, onClose }) {
               placeholder="name@email.com"
               style={{
                 width: '100%', height: '44px', padding: '0 12px',
-                background: 'var(--surface-2)', border: '1.5px solid transparent',
+                background: 'var(--surface-2)',
+                border: error ? '1.5px solid var(--red, #FF453A)' : '1.5px solid transparent',
+                boxShadow: error ? '0 0 0 2px rgba(255, 69, 58, 0.15)' : 'none',
                 borderRadius: 'var(--r-sm)', fontSize: '15px', outline: 'none',
-                color: 'var(--text-1)'
+                color: 'var(--text-1)',
+                transition: 'all 0.2s ease'
               }}
             />
           </div>
@@ -1025,9 +1047,12 @@ function LoginModal({ state, setState, onClose }) {
               placeholder="••••••••"
               style={{
                 width: '100%', height: '44px', padding: '0 12px',
-                background: 'var(--surface-2)', border: '1.5px solid transparent',
+                background: 'var(--surface-2)',
+                border: error ? '1.5px solid var(--red, #FF453A)' : '1.5px solid transparent',
+                boxShadow: error ? '0 0 0 2px rgba(255, 69, 58, 0.15)' : 'none',
                 borderRadius: 'var(--r-sm)', fontSize: '15px', outline: 'none',
-                color: 'var(--text-1)'
+                color: 'var(--text-1)',
+                transition: 'all 0.2s ease'
               }}
             />
           </div>
@@ -1042,15 +1067,17 @@ function LoginModal({ state, setState, onClose }) {
           </button>
         </form>
 
-        <div style={{ textAlign: 'center', marginTop: '1.25rem' }}>
-          <button
-            className="timer-cheat"
-            onClick={onClose}
-            style={{ fontSize: '12px', border: 'none', background: 'none' }}
-          >
-            Run as Guest (Local Only)
-          </button>
-        </div>
+        {!forced && (
+          <div style={{ textAlign: 'center', marginTop: '1.25rem' }}>
+            <button
+              className="timer-cheat"
+              onClick={onClose}
+              style={{ fontSize: '12px', border: 'none', background: 'none' }}
+            >
+              Run as Guest (Local Only)
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )
@@ -1295,40 +1322,28 @@ function Dashboard({ state, setState }) {
           <p style={{ fontSize: 13, marginTop: 2, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
             <span>Time is money. Spend it wisely.</span>
             <span style={{ color: 'var(--text-3)' }}>·</span>
-            {user ? (
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: '12px', color: syncStatus === 'error' ? 'var(--red)' : syncStatus === 'syncing' ? 'var(--text-2)' : '#1A7A33', fontWeight: '500' }}>
-                {syncStatus === 'syncing' ? '🔄' : '☁️'} {syncStatus === 'syncing' ? 'Syncing...' : syncStatus === 'error' ? 'Sync Error' : 'Cloud Synced'}
-              </span>
-            ) : (
-              <span style={{ fontSize: '12px', color: 'var(--text-3)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                ☁️ Local Guest
-              </span>
-            )}
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: '12px', color: syncStatus === 'error' ? 'var(--red)' : syncStatus === 'syncing' ? 'var(--text-2)' : '#1A7A33', fontWeight: '500' }}>
+              {syncStatus === 'syncing' ? '🔄' : '☁️'} {syncStatus === 'syncing' ? 'Syncing...' : syncStatus === 'error' ? 'Sync Error' : 'Cloud Synced'}
+            </span>
           </p>
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
           {/* User Auth control */}
-          {user ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-2)', background: 'var(--surface-2)', padding: '6px 12px', borderRadius: '980px', border: '1px solid var(--border)' }}>
-                👤 {user.email}
-              </span>
-              <button
-                className="btn btn-secondary btn-sm"
-                onClick={() => {
-                  if (confirm('Log out? Your local storage will remain, but cloud syncing will be suspended.')) {
-                    setState(s => ({ ...s, user: null, token: null, syncStatus: 'synced' }))
-                  }
-                }}
-              >
-                Log Out
-              </button>
-            </div>
-          ) : (
-            <button className="btn btn-primary btn-sm" onClick={() => setState(s => ({ ...s, loginOpen: true }))}>
-              🔑 Sign In
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-2)', background: 'var(--surface-2)', padding: '6px 12px', borderRadius: '980px', border: '1px solid var(--border)' }}>
+              👤 {user?.email}
+            </span>
+            <button
+              className="btn btn-secondary btn-sm"
+              onClick={() => {
+                if (confirm('Log out? Your local storage will remain, but cloud syncing will be suspended.')) {
+                  setState(s => ({ ...s, user: null, token: null, refreshToken: null, syncStatus: 'synced' }))
+                }
+              }}
+            >
+              Log Out
             </button>
-          )}
+          </div>
 
           <button className="btn btn-secondary btn-sm" onClick={() => setState(s => ({ ...s, tradeOpen: true, tradeFeedback: null }))}><ArrowLeftRight size={13} /> Trade</button>
           <button className="btn btn-secondary btn-sm" onClick={() => setState(s => ({ ...s, borrowOpen: true }))}><Landmark size={13} /> Overdraft</button>
@@ -1553,7 +1568,6 @@ function Dashboard({ state, setState }) {
       {borrowOpen && <BorrowModal state={state} setState={setState} onClose={() => setState(s => ({ ...s, borrowOpen: false }))} onExecute={executeBorrow} />}
       {excuseOpen && <ExcuseModal state={state} setState={setState} onClose={() => setState(s => ({ ...s, excuseOpen: false }))} onExecute={executeExcuse} />}
       {settingsOpen && <SettingsModal state={state} setState={setState} onClose={() => setState(s => ({ ...s, settingsOpen: false }))} />}
-      {loginOpen && <LoginModal state={state} setState={setState} onClose={() => setState(s => ({ ...s, loginOpen: false }))} />}
     </div>
   )
 }
@@ -1574,17 +1588,54 @@ export default function App() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
   }, [state])
 
+  const refreshSession = async (refreshToken) => {
+    try {
+      const res = await fetch('/api/refresh', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh_token: refreshToken })
+      })
+      if (res.ok) {
+        const data = await res.json()
+        return data.session
+      }
+    } catch (err) {
+      console.error('Error refreshing session:', err)
+    }
+    return null
+  }
+
   // Startup: sync state from Supabase if logged in
   useEffect(() => {
     if (state.token && state.user) {
       const fetchLatest = async () => {
         try {
           setState(s => ({ ...s, syncStatus: 'syncing' }))
-          const res = await fetch('/api/get-state', {
+          let currentToken = state.token
+          let res = await fetch('/api/get-state', {
             headers: {
-              'Authorization': `Bearer ${state.token}`
+              'Authorization': `Bearer ${currentToken}`
             }
           })
+
+          if (res.status === 401 && state.refreshToken) {
+            const newSession = await refreshSession(state.refreshToken)
+            if (newSession) {
+              currentToken = newSession.access_token
+              res = await fetch('/api/get-state', {
+                headers: {
+                  'Authorization': `Bearer ${currentToken}`
+                }
+              })
+              setState(s => ({
+                ...s,
+                token: newSession.access_token,
+                refreshToken: newSession.refresh_token,
+                user: newSession.user
+              }))
+            }
+          }
+
           if (res.ok) {
             const data = await res.json()
             if (data.state) {
@@ -1595,10 +1646,11 @@ export default function App() {
               }))
             }
           } else {
-            // Token might be invalid or expired
+            // Token might be invalid or expired and refresh failed
             setState(s => ({
               ...s,
               token: null,
+              refreshToken: null,
               user: null,
               syncStatus: 'synced'
             }))
@@ -1636,18 +1688,49 @@ export default function App() {
 
     const timer = setTimeout(async () => {
       try {
-        const res = await fetch('/api/update-state', {
+        let currentToken = state.token
+        let res = await fetch('/api/update-state', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${state.token}`
+            'Authorization': `Bearer ${currentToken}`
           },
           body: JSON.stringify({ state: payload })
         })
+
+        if (res.status === 401 && state.refreshToken) {
+          const newSession = await refreshSession(state.refreshToken)
+          if (newSession) {
+            currentToken = newSession.access_token
+            res = await fetch('/api/update-state', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${currentToken}`
+              },
+              body: JSON.stringify({ state: payload })
+            })
+            setState(s => ({
+              ...s,
+              token: newSession.access_token,
+              refreshToken: newSession.refresh_token,
+              user: newSession.user
+            }))
+          }
+        }
+
         if (res.ok) {
           setState(s => ({ ...s, syncStatus: 'synced' }))
         } else {
           setState(s => ({ ...s, syncStatus: 'error' }))
+          if (res.status === 401) {
+            setState(s => ({
+              ...s,
+              token: null,
+              refreshToken: null,
+              user: null
+            }))
+          }
         }
       } catch (_) {
         setState(s => ({ ...s, syncStatus: 'error' }))
@@ -1657,6 +1740,7 @@ export default function App() {
     return () => clearTimeout(timer)
   }, [
     state.token,
+    state.refreshToken,
     state.user,
     state.step,
     state.done,
@@ -1673,6 +1757,10 @@ export default function App() {
     JSON.stringify(state.ledger),
     state.selectedDay
   ])
+
+  if (!state.token || !state.user) {
+    return <LoginModal state={state} setState={setState} onClose={null} forced={true} />
+  }
 
   if (!state.done) return <Onboarding state={state} setState={setState} />
   return <Dashboard state={state} setState={setState} />

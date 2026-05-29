@@ -1,4 +1,4 @@
-import { supabase } from './_supabase.js'
+import { supabase, validateSupabaseConfig } from './_supabase.js'
 
 const DEFAULT_STATE = {
   step: 1, done: false,
@@ -29,16 +29,33 @@ export default async function handler(req, res) {
   // --- Sandbox / Mock fallback mode ---
   if (!supabase) {
     console.log('[Login API] Running in Sandbox / Mock mode')
+    
+    // Simulate failed login if password is 'incorrect', 'wrong', or too short
+    if (password === 'incorrect' || password === 'wrong' || password.length < 6) {
+      return res.status(400).json({
+        error: 'Incorrect credentials. Please verify your email and password.'
+      })
+    }
+
     const mockToken = `mock-jwt-token-${Buffer.from(email).toString('base64')}`
+    const mockRefreshToken = `mock-refresh-token-${Buffer.from(email).toString('base64')}`
     
     // Attempt to load from virtual sandbox storage (memory/localStorage mock)
     // For Sandbox fallback, we can just return a saved local state if they have one or DEFAULT_STATE
     return res.status(200).json({
-      session: { access_token: mockToken, user: { email, id: `mock-uuid-1234` } },
+      session: {
+        access_token: mockToken,
+        refresh_token: mockRefreshToken,
+        user: { email, id: `mock-uuid-1234` }
+      },
       state: DEFAULT_STATE,
       sandbox: true,
       message: 'Logged in to Sandbox! (Data saved locally until Supabase is connected)'
     })
+  }
+
+  if (supabase && !validateSupabaseConfig(res)) {
+    return
   }
 
   try {
@@ -49,7 +66,13 @@ export default async function handler(req, res) {
     })
 
     if (authError || !authData.user) {
-      return res.status(400).json({ error: authError?.message || 'Invalid email or password' })
+      const isCredsError = authError?.message?.toLowerCase().includes('credential') || 
+                           authError?.message?.toLowerCase().includes('invalid') || 
+                           authError?.message?.toLowerCase().includes('incorrect')
+      const userFriendlyError = isCredsError 
+        ? 'Incorrect credentials. Please verify your email and password.'
+        : (authError?.message || 'Incorrect credentials. Please verify your email and password.')
+      return res.status(400).json({ error: userFriendlyError })
     }
 
     const userId = authData.user.id
@@ -81,12 +104,20 @@ export default async function handler(req, res) {
     }
 
     return res.status(200).json({
-      session: { access_token: authData.session?.access_token || '', user: authData.user },
+      session: {
+        access_token: authData.session?.access_token || '',
+        refresh_token: authData.session?.refresh_token || '',
+        user: authData.user
+      },
       state: userState
     })
 
   } catch (err) {
     console.error('[Login Exception]:', err)
-    return res.status(500).json({ error: err.message || 'Internal server error' })
+    let errorMsg = err.message || 'Internal server error'
+    if (errorMsg.includes('expected pattern') || errorMsg.includes('atob') || errorMsg.includes('decode')) {
+      errorMsg = 'Supabase configuration error: The API key format is invalid (must be a 3-part JWT). Please check your environment variables.'
+    }
+    return res.status(500).json({ error: errorMsg })
   }
 }

@@ -1,4 +1,4 @@
-import { supabase } from './_supabase.js'
+import { supabase, validateSupabaseConfig } from './_supabase.js'
 
 const DEFAULT_STATE = {
   step: 1, done: false,
@@ -31,12 +31,21 @@ export default async function handler(req, res) {
     console.log('[Signup API] Running in Sandbox / Mock mode')
     // Generate a mock JWT and user
     const mockToken = `mock-jwt-token-${Buffer.from(email).toString('base64')}`
+    const mockRefreshToken = `mock-refresh-token-${Buffer.from(email).toString('base64')}`
     return res.status(200).json({
-      session: { access_token: mockToken, user: { email, id: `mock-uuid-${Date.now()}` } },
+      session: {
+        access_token: mockToken,
+        refresh_token: mockRefreshToken,
+        user: { email, id: `mock-uuid-${Date.now()}` }
+      },
       state: DEFAULT_STATE,
       sandbox: true,
       message: 'Signed up in Sandbox mode! (Connect Supabase env variables to save to actual database)'
     })
+  }
+
+  if (supabase && !validateSupabaseConfig(res)) {
+    return
   }
 
   try {
@@ -66,13 +75,28 @@ export default async function handler(req, res) {
       // We don't fail the signup completely since auth worked, but return error status info
     }
 
+    if (!authData.session) {
+      return res.status(200).json({
+        session: null,
+        message: 'Signup successful! Please check your email for a confirmation link to activate your account.'
+      })
+    }
+
     return res.status(200).json({
-      session: { access_token: authData.session?.access_token || '', user: authData.user },
+      session: {
+        access_token: authData.session.access_token,
+        refresh_token: authData.session.refresh_token,
+        user: authData.user
+      },
       state: DEFAULT_STATE
     })
 
   } catch (err) {
     console.error('[Signup Exception]:', err)
-    return res.status(500).json({ error: err.message || 'Internal server error' })
+    let errorMsg = err.message || 'Internal server error'
+    if (errorMsg.includes('expected pattern') || errorMsg.includes('atob') || errorMsg.includes('decode')) {
+      errorMsg = 'Supabase configuration error: The API key format is invalid (must be a 3-part JWT). Please check your environment variables.'
+    }
+    return res.status(500).json({ error: errorMsg })
   }
 }
