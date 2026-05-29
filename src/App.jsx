@@ -1420,140 +1420,6 @@ function LoginModal({ state, setState, onClose, forced = false }) {
 }
 
 
-function ConstructionSiteSVG({ colorHex }) {
-  return (
-    <svg viewBox="0 0 80 80" width="60" height="60" style={{ overflow: 'visible' }}>
-      <path d="M 5 65 L 75 65 L 70 75 L 10 75 Z" fill="#8B5A2B" />
-      <rect x="5" y="62" width="70" height="3" rx="1.5" fill="#5C4033" />
-      <line x1="20" y1="30" x2="20" y2="62" stroke="#AEAEB2" strokeWidth="2.5" />
-      <line x1="45" y1="30" x2="45" y2="62" stroke="#AEAEB2" strokeWidth="2.5" />
-      <line x1="15" y1="38" x2="50" y2="38" stroke="#AEAEB2" strokeWidth="2" />
-      <line x1="15" y1="50" x2="50" y2="50" stroke="#AEAEB2" strokeWidth="2" />
-      <line x1="20" y1="38" x2="45" y2="50" stroke="#E8E8ED" strokeWidth="1.5" strokeDasharray="2,2" />
-      <line x1="45" y1="38" x2="20" y2="50" stroke="#E8E8ED" strokeWidth="1.5" strokeDasharray="2,2" />
-      <line x1="55" y1="15" x2="55" y2="62" stroke="#FF9500" strokeWidth="3" />
-      <line x1="35" y1="20" x2="70" y2="20" stroke="#FF9500" strokeWidth="2.5" />
-      <path d="M 35 20 L 55 12 Z" stroke="#FF9500" strokeWidth="2" />
-      <line x1="40" y1="20" x2="40" y2="32" stroke="#6E6E73" strokeWidth="1" />
-      <rect x="38" y="32" width="4" height="4" fill="#FF9500" />
-      <rect x="18" y="52" width="22" height="8" fill="#FFCC00" rx="1" stroke="#FF9500" strokeWidth="1" />
-      <line x1="22" y1="56" x2="36" y2="56" stroke="#1D1D1F" strokeWidth="1.5" />
-      <polygon points="10,62 13,62 11.5,55" fill="#FF9500" />
-      <polygon points="70,62 73,62 71.5,55" fill="#FF9500" />
-    </svg>
-  )
-}
-
-function CottageSVG({ colorHex }) {
-  return (
-    <svg viewBox="0 0 80 80" width="60" height="60" style={{ overflow: 'visible' }}>
-      <path d="M 5 65 Q 40 60 75 65 L 70 75 L 10 75 Z" fill="#30D158" opacity="0.85" />
-      <rect x="52" y="24" width="6" height="14" fill="#6E6E73" rx="1" />
-      <circle cx="55" cy="16" r="3" fill="#AEAEB2" opacity="0.6" />
-      <circle cx="57" cy="10" r="4.5" fill="#AEAEB2" opacity="0.4" />
-      <rect x="22" y="34" width="36" height="28" fill="#F5F5F7" stroke="#E8E8ED" strokeWidth="1.5" rx="3" />
-      <polygon points="18,36 58,36 38,18" fill={colorHex} />
-      <rect x="28" y="40" width="8" height="8" rx="1.5" fill="#FFD60A" stroke="#E8E8ED" strokeWidth="1" />
-      <line x1="32" y1="40" x2="32" y2="48" stroke="#FF9500" strokeWidth="0.8" />
-      <line x1="28" y1="44" x2="36" y2="44" stroke="#FF9500" strokeWidth="0.8" />
-      <rect x="42" y="44" width="10" height="18" fill="#8B5A2B" rx="1" />
-      <circle cx="45" cy="53" r="1" fill="#FFD60A" />
-    </svg>
-  )
-}
-
-function ApartmentSVG({ colorHex }) {
-  return (
-    <svg viewBox="0 0 80 80" width="60" height="60" style={{ overflow: 'visible' }}>
-      <path d="M 5 65 L 75 65 L 72 75 L 8 75 Z" fill="#AEAEB2" />
-      <rect x="24" y="16" width="32" height="49" fill="#FFFFFF" stroke="#E8E8ED" strokeWidth="1.5" rx="4" />
-      <rect x="22" y="12" width="36" height="4" fill={colorHex} rx="2" />
-      <path d="M 28 12 Q 26 6 29 6 C 32 6 30 12 30 12" stroke="#30D158" strokeWidth="1.5" fill="none" />
-      <rect x="29" y="20" width="6" height="7" rx="1" fill="#FFD60A" />
-      <rect x="45" y="20" width="6" height="7" rx="1" fill="#E8E8ED" />
-      
-      <rect x="29" y="32" width="6" height="7" rx="1" fill="#E8E8ED" />
-      <rect x="45" y="32" width="6" height="7" rx="1" fill="#FFD60A" />
-      
-      <rect x="29" y="44" width="6" height="7" rx="1" fill="#FFD60A" />
-      <rect x="45" y="44" width="6" height="7" rx="1" fill="#FFD60A" />
-      <rect x="27" y="36" width="10" height="4" fill="none" stroke="#6E6E73" strokeWidth="1" />
-      <rect x="36" y="53" width="8" height="12" fill="#1D1D1F" rx="1" />
-      <rect x="38" y="55" width="4" height="10" fill="#FFD60A" opacity="0.8" />
-    </svg>
-  )
-}
-
-function SkyscraperSVG({ colorHex }) {
-  return (
-    <svg viewBox="0 0 80 80" width="60" height="60" style={{ overflow: 'visible' }}>
-      <path d="M 5 65 L 75 65 L 73 75 L 7 75 Z" fill="#1D1D1F" />
-      <rect x="26" y="10" width="28" height="55" fill="#FFFFFF" stroke="#E8E8ED" strokeWidth="1.5" rx="3" />
-      <rect x="23" y="12" width="3" height="51" fill={colorHex} rx="1" />
-      <rect x="54" y="12" width="3" height="51" fill={colorHex} rx="1" />
-      <line x1="40" y1="10" x2="40" y2="2" stroke="#AEAEB2" strokeWidth="1.5" />
-      <circle cx="40" cy="2" r="1.8" fill={colorHex} />
-      <rect x="29" y="14" width="22" height="5" rx="0.5" fill="#FFD60A" opacity="0.9" />
-      
-      <rect x="30" y="23" width="4" height="4" fill="#FFD60A" rx="0.5" />
-      <rect x="38" y="23" width="4" height="4" fill="#E8E8ED" rx="0.5" />
-      <rect x="46" y="23" width="4" height="4" fill="#FFD60A" rx="0.5" />
-      
-      <rect x="30" y="31" width="4" height="4" fill="#E8E8ED" rx="0.5" />
-      <rect x="38" y="31" width="4" height="4" fill="#FFD60A" rx="0.5" />
-      <rect x="46" y="31" width="4" height="4" fill="#FFD60A" rx="0.5" />
-      
-      <rect x="30" y="39" width="4" height="4" fill="#FFD60A" rx="0.5" />
-      <rect x="38" y="39" width="4" height="4" fill="#E8E8ED" rx="0.5" />
-      <rect x="46" y="39" width="4" height="4" fill="#FFD60A" rx="0.5" />
-
-      <rect x="30" y="47" width="4" height="4" fill="#FFD60A" rx="0.5" />
-      <rect x="38" y="47" width="4" height="4" fill="#FFD60A" rx="0.5" />
-      <rect x="46" y="47" width="4" height="4" fill="#E8E8ED" rx="0.5" />
-      
-      <rect x="36" y="57" width="8" height="8" fill="#1D1D1F" rx="1" />
-      <line x1="40" y1="57" x2="40" y2="65" stroke="#FFCC00" strokeWidth="1" />
-    </svg>
-  )
-}
-
-function TimeCityBuilding({ project, overdrafted }) {
-  const pct = project.allocatedCash > 0 ? (project.spentCash / project.allocatedCash) * 100 : 0
-  const colorHex = COLORS[project.color]?.hex ?? '#0071E3'
-  
-  let BuildingComponent = ConstructionSiteSVG
-  
-  if (pct >= 100) {
-    BuildingComponent = SkyscraperSVG
-  } else if (pct >= 70) {
-    BuildingComponent = ApartmentSVG
-  } else if (pct >= 30) {
-    BuildingComponent = CottageSVG
-  }
-
-  return (
-    <div className="city-bar-wrap" style={{ opacity: overdrafted ? 0.55 : 1, transition: 'all 0.3s ease', position: 'relative' }}>
-      <div style={{ position: 'relative', width: '100%', height: '64px', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', filter: overdrafted ? 'grayscale(80%)' : 'none' }}>
-        <BuildingComponent colorHex={colorHex} />
-        {overdrafted && (
-          <div style={{
-            position: 'absolute', inset: 0,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: '9px', color: 'var(--red)', fontWeight: '700',
-            backgroundColor: 'rgba(255, 69, 58, 0.08)', borderRadius: '6px',
-            border: '1px dashed var(--red)', height: '60px', pointerEvents: 'none'
-          }}>
-            MORTGAGED
-          </div>
-        )}
-      </div>
-      <span className="city-bar-lbl" title={`${project.name} (${Math.round(pct)}%)`} style={{ marginTop: '8px' }}>
-        {project.name.split(' ')[0]} ({Math.round(pct)}%)
-      </span>
-    </div>
-  )
-}
-
 function FlowingTimeCity({ projects, overdrafted }) {
   const N = projects.length
   
@@ -1583,7 +1449,7 @@ function FlowingTimeCity({ projects, overdrafted }) {
           </p>
         </div>
         <div style={{ display: 'flex', gap: '8px', fontSize: '10px', fontWeight: '700', textTransform: 'uppercase', color: 'var(--text-3)', background: 'var(--surface-2)', padding: '6px 12px', borderRadius: '20px' }}>
-          <span>0% 🌱</span>
+          <span>0% 🚧</span>
           <span>·</span>
           <span>30% 🏡</span>
           <span>·</span>
@@ -1684,38 +1550,49 @@ function FlowingTimeCity({ projects, overdrafted }) {
             </g>
           ))}
 
-          {/* Dynamic Buildings */}
+          {/* Dynamic iOS Emoji Buildings */}
           {projects.map((p, idx) => {
             const pct = p.allocatedCash > 0 ? (p.spentCash / p.allocatedCash) * 100 : 0
             const colorHex = COLORS[p.color]?.hex ?? '#0071E3'
             
             // Calculate spacing based on number of projects
             const x = N > 1 ? 100 + idx * (600 / (N - 1)) : 400
-            const y = 95
+            const y = 145 // Ground level baseline for emoji characters
             
-            let BuildingComponent = ConstructionSiteSVG
+            let emoji = '🚧' // 0% progress
             if (pct >= 100) {
-              BuildingComponent = SkyscraperSVG
+              emoji = '🏙️' // 100%+ Skyscraper
             } else if (pct >= 70) {
-              BuildingComponent = ApartmentSVG
+              emoji = '🏢' // 70%-99% Apartment
             } else if (pct >= 30) {
-              BuildingComponent = CottageSVG
+              emoji = '🏡' // 30%-69% Cozy Cottage
+            } else if (pct > 0) {
+              emoji = '🏗️' // 1%-29% Under active construction
             }
 
             return (
               <g key={p.id}>
-                {/* Building SVG */}
-                <g style={{ opacity: overdrafted ? 0.55 : 1, filter: overdrafted ? 'grayscale(80%)' : 'none' }}>
-                  <svg x={x - 40} y={y} width="80" height="80" style={{ overflow: 'visible' }}>
-                    <BuildingComponent colorHex={colorHex} />
-                  </svg>
+                {/* Emoji Character */}
+                <g style={{ filter: overdrafted ? 'grayscale(90%) opacity(0.65)' : 'none', transition: 'all 0.3s' }}>
+                  <text 
+                    x={x} 
+                    y={y} 
+                    fontSize="54px" 
+                    textAnchor="middle" 
+                    style={{ 
+                      userSelect: 'none',
+                      filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.15))'
+                    }}
+                  >
+                    {emoji}
+                  </text>
                 </g>
 
                 {/* Mortgaged Warning Label Overlay */}
                 {overdrafted && (
                   <g>
-                    <rect x={x - 30} y={120} width="60" height="15" rx="3" fill="#FF453A" opacity="0.9" />
-                    <text x={x} y={130} textAnchor="middle" fill="#FFFFFF" style={{ fontSize: '8px', fontWeight: '800', letterSpacing: '0.05em' }}>
+                    <rect x={x - 30} y={115} width="60" height="15" rx="3" fill="#FF453A" opacity="0.9" />
+                    <text x={x} y={125} textAnchor="middle" fill="#FFFFFF" style={{ fontSize: '8px', fontWeight: '800', letterSpacing: '0.05em' }}>
                       MORTGAGED
                     </text>
                   </g>
@@ -2010,8 +1887,7 @@ function Dashboard({ state, setState }) {
       </div>
       
       {/* Main content */}
-      <div className="main-grid">
-        <div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
           {/* Focus Debt & Statistics Ledger */}
           <div className="surface" style={{ padding: '1.5rem', marginBottom: '1.5rem', border: '1px solid var(--border)', background: 'rgba(255, 255, 255, 0.75)', backdropFilter: 'blur(10px)' }}>
             <div className="section-header" style={{ marginBottom: '1.25rem' }}>
@@ -2594,15 +2470,6 @@ function Dashboard({ state, setState }) {
                 })}
               </div>
           }
-        </div>
-      </div>
-
-      {/* Sidebar */}
-        <div>
-          {/* Tim Companion Widget */}
-          <div className="sidebar-section" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '2rem' }}>
-            <div className="tim-avatar" style={{ width: '130px', height: '130px', margin: 0 }}><Tim mood={mood} /></div>
-          </div>
         </div>
       </div>
 
