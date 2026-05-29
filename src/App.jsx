@@ -1419,240 +1419,179 @@ function LoginModal({ state, setState, onClose, forced = false }) {
   )
 }
 
-function FlowingTimeCity({ projects, overdrafted }) {
-  const N = projects.length
+function FlowingTimeCity({ overdrafted, dayBudget, daySpent }) {
+  const pct = dayBudget > 0 ? (daySpent / dayBudget) * 100 : 0;
   
+  let activeStage = 1;
+  if (pct >= 100) {
+    activeStage = 4;
+  } else if (pct >= 30) {
+    activeStage = 3;
+  } else if (pct > 0) {
+    activeStage = 2;
+  }
+
+  const stages = [
+    { id: 1, emoji: '🌱', label: 'Sprout', desc: '0% done' },
+    { id: 2, emoji: '🏠', label: 'Cozy House', desc: '1%-29% done' },
+    { id: 3, emoji: '🏘️', label: 'Neighborhood', desc: '30%-99% done' },
+    { id: 4, emoji: '🏙️', label: 'Metropolis', desc: '100%+ done' }
+  ];
+
   return (
     <div 
-      className="surface city-breakout-card" 
+      className="surface" 
       style={{ 
-        marginTop: '2.5rem', 
-        padding: '2rem 1.5rem 1.5rem', 
+        marginTop: '2rem', 
+        padding: '2.5rem 2rem', 
         border: '1px solid var(--border)', 
-        background: 'rgba(255, 255, 255, 0.75)', 
-        backdropFilter: 'blur(10px)',
-        position: 'relative',
-        overflow: 'visible',
-        boxShadow: 'var(--shadow-sm)'
+        background: '#FFFFFF', 
+        borderRadius: 'var(--r-xl)',
+        boxShadow: 'var(--shadow-sm)',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center'
       }}
     >
-      {/* City Header */}
-      <div className="section-header" style={{ marginBottom: '2.5rem', position: 'relative', zIndex: 10 }}>
-        <div>
-          <span className="section-title" style={{ fontSize: '18px', fontWeight: '700', letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <Landmark size={20} style={{ color: 'var(--accent)' }} /> 
-            Time City Panorama
-          </span>
-          <p style={{ fontSize: '12px', color: 'var(--text-3)', marginTop: '2px' }}>
-            A continuous flowing landscape of your weekly accomplishments.
-          </p>
-        </div>
-        <div style={{ display: 'flex', gap: '8px', fontSize: '10px', fontWeight: '700', textTransform: 'uppercase', color: 'var(--text-3)', background: 'var(--surface-2)', padding: '6px 12px', borderRadius: '20px' }}>
-          <span>0% 🌱</span>
-          <span>·</span>
-          <span>1%-29% 🏠</span>
-          <span>·</span>
-          <span>30%-99% 🏘️</span>
-          <span>·</span>
-          <span>100%+ 🏙️</span>
-        </div>
+      <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
+        <h3 style={{ fontSize: '1.25rem', fontWeight: '700', letterSpacing: '-0.02em', color: 'var(--text-1)', margin: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+          <Landmark size={20} style={{ color: 'var(--accent)' }} /> 
+          Time City Panorama
+        </h3>
+        <p style={{ fontSize: '13px', color: 'var(--text-3)', marginTop: '4px', margin: 0 }}>
+          Your daily focus progression represented in minimal stages of construction.
+        </p>
       </div>
 
-      {/* SVG Canvas */}
-      <div style={{ position: 'relative', width: '100%', height: '210px', overflow: 'visible' }}>
-        <svg 
-          viewBox="0 0 800 200" 
-          width="100%" 
-          height="100%" 
-          style={{ 
-            display: 'block', 
-            overflow: 'visible',
-            position: 'absolute',
-            top: '-55px', // Pull the entire continuous landscape up so buildings breakout of the card's top edge!
-            left: 0
-          }}
-        >
-          {/* Sky Gradient */}
-          <defs>
-            {overdrafted ? (
-              <linearGradient id="skyGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#2C2C2E" />
-                <stop offset="100%" stopColor="#1C1C1E" />
-              </linearGradient>
-            ) : (
-              <linearGradient id="skyGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#C1E3FF" />
-                <stop offset="100%" stopColor="#E5F3FF" />
-              </linearGradient>
-            )}
-          </defs>
+      <div style={{ 
+        position: 'relative', 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        width: '100%', 
+        maxWidth: '680px', 
+        padding: '0 1rem',
+        margin: '1rem 0'
+      }}>
+        {/* Connecting line */}
+        <div style={{
+          position: 'absolute',
+          top: '45px',
+          left: '12.5%',
+          right: '12.5%',
+          height: '2px',
+          background: 'var(--border-strong)',
+          zIndex: 1
+        }} />
+        
+        {/* Active fill line */}
+        <div style={{
+          position: 'absolute',
+          top: '45px',
+          left: '12.5%',
+          width: `${((activeStage - 1) / 3) * 75}%`,
+          height: '2px',
+          background: overdrafted ? 'var(--text-3)' : 'var(--accent)',
+          zIndex: 2,
+          transition: 'width 0.4s ease'
+        }} />
+
+        {stages.map((stage) => {
+          const isActive = activeStage === stage.id;
+          const isPassed = activeStage > stage.id;
           
-          {/* Sky Background Path */}
-          <rect x="0" y="0" width="800" height="200" rx="16" fill="url(#skyGrad)" />
+          return (
+            <div 
+              key={stage.id} 
+              style={{ 
+                display: 'flex', 
+                flexDirection: 'column', 
+                alignItems: 'center', 
+                position: 'relative',
+                zIndex: 3,
+                width: '100px'
+              }}
+            >
+              {/* White Square Emoji Tile */}
+              <div 
+                style={{ 
+                  width: '90px', 
+                  height: '90px', 
+                  borderRadius: '24px', 
+                  background: '#FFFFFF', 
+                  border: isActive 
+                    ? `2.5px solid ${overdrafted ? 'var(--text-2)' : 'var(--accent)'}` 
+                    : isPassed 
+                      ? `2.5px solid ${overdrafted ? 'var(--text-3)' : 'rgba(0, 113, 227, 0.4)'}`
+                      : '2.5px solid var(--border)',
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center',
+                  fontSize: '40px',
+                  boxShadow: isActive 
+                    ? '0 12px 32px rgba(0, 0, 0, 0.06), 0 4px 12px rgba(0, 113, 227, 0.08)' 
+                    : 'var(--shadow-xs)',
+                  userSelect: 'none',
+                  filter: overdrafted 
+                    ? 'grayscale(90%) opacity(0.5)' 
+                    : isActive 
+                      ? 'none' 
+                      : isPassed 
+                        ? 'opacity(0.8)' 
+                        : 'opacity(0.25)',
+                  transition: 'all 0.3s ease',
+                  cursor: 'default'
+                }}
+              >
+                {stage.emoji}
+              </div>
 
-          {/* Glowing Sun or Moon */}
-          {overdrafted ? (
-            <path d="M 700 25 A 15 15 0 1 0 715 40 A 12 12 0 1 1 700 25 Z" fill="#FF453A" opacity="0.45" />
-          ) : (
-            <g>
-              <circle cx="710" cy="40" r="16" fill="#FFCC00" filter="drop-shadow(0 0 6px rgba(255,214,10,0.4))" />
-              <circle cx="705" cy="35" r="4" fill="#FFFFFF" opacity="0.6" />
-            </g>
-          )}
-
-          {/* Flying Birds */}
-          {!overdrafted && (
-            <g>
-              <path d="M 610 35 Q 614 31 618 35 Q 622 31 626 35" fill="none" stroke="#A7C7E7" strokeWidth="1.5" strokeLinecap="round" />
-              <path d="M 632 42 Q 635 39 638 42 Q 641 39 644 42" fill="none" stroke="#A7C7E7" strokeWidth="1.2" strokeLinecap="round" />
-            </g>
-          )}
-
-          {/* Round Bouncy Cloud 1 */}
-          <g style={{ opacity: overdrafted ? 0.3 : 0.9, transition: 'all 0.3s' }}>
-            <circle cx="110" cy="55" r="15" fill="#FFFFFF" />
-            <circle cx="130" cy="42" r="22" fill="#FFFFFF" />
-            <circle cx="152" cy="55" r="15" fill="#FFFFFF" />
-            <rect x="110" y="50" width="42" height="21" fill="#FFFFFF" />
-          </g>
-
-          {/* Round Bouncy Cloud 2 */}
-          <g style={{ opacity: overdrafted ? 0.25 : 0.85, transition: 'all 0.3s' }}>
-            <circle cx="430" cy="45" r="12" fill="#FFFFFF" />
-            <circle cx="448" cy="35" r="18" fill="#FFFFFF" />
-            <circle cx="466" cy="45" r="12" fill="#FFFFFF" />
-            <rect x="430" y="41" width="36" height="17" fill="#FFFFFF" />
-          </g>
-
-          {/* Background hills */}
-          <path 
-            d="M -20 160 Q 250 135 500 162 T 820 155 L 820 205 L -20 205 Z" 
-            fill={overdrafted ? "#3A3A3C" : "#A3E4D7"} 
-            opacity={overdrafted ? "0.35" : "0.55"} 
-          />
-
-          {/* Main Ground green path */}
-          <path 
-            d="M -20 160 Q 400 178 820 160 L 820 205 L -20 205 Z" 
-            fill={overdrafted ? "#2C2C2E" : "#82E0AA"} 
-            opacity="0.85" 
-          />
-          <line x1="0" y1="160" x2="800" y2="160" stroke={overdrafted ? "#48484A" : "#52BE80"} strokeWidth="2.5" opacity="0.6" />
-
-          {/* Winding road path linking the city together */}
-          <path 
-            d="M 0 172 Q 400 188 800 172" 
-            fill="none" 
-            stroke={overdrafted ? "#AEAEB2" : "#EBEDEF"} 
-            strokeWidth="5" 
-            strokeLinecap="round" 
-            opacity="0.9" 
-          />
-          <path 
-            d="M 0 172 Q 400 188 800 172" 
-            fill="none" 
-            stroke="#FFFFFF" 
-            strokeWidth="1.2" 
-            strokeDasharray="4,4" 
-            strokeLinecap="round" 
-            opacity="0.75" 
-          />
-
-          {/* Decorative Trees - Circles with Sticks! */}
-          {[50, 180, 360, 520, 700, 750].map((treeX, idx) => {
-            const treeHeight = idx % 2 === 0 ? 15 : 12;
-            const treeRadius = idx % 2 === 0 ? 9 : 7;
-            const foliageColor = overdrafted 
-              ? "#5D6D7E" 
-              : idx % 3 === 0 
-                ? "#28B463" 
-                : idx % 3 === 1 
-                  ? "#2E4053" 
-                  : "#58D68D"; 
-            return (
-              <g key={idx}>
-                {/* Stick (Trunk) */}
-                <line 
-                  x1={treeX} 
-                  y1="160" 
-                  x2={treeX} 
-                  y2={160 - treeHeight} 
-                  stroke="#8B5A2B" 
-                  strokeWidth="2.5" 
-                  strokeLinecap="round" 
-                />
-                {/* Circle (Foliage) */}
-                <circle 
-                  cx={treeX} 
-                  cy={160 - treeHeight} 
-                  r={treeRadius} 
-                  fill={foliageColor} 
-                  filter="drop-shadow(0 2px 4px rgba(0,0,0,0.08))" 
-                />
-              </g>
-            );
-          })}
-
-          {/* Dynamic iOS Emoji Buildings */}
-          {projects.map((p, idx) => {
-            const pct = p.allocatedCash > 0 ? (p.spentCash / p.allocatedCash) * 100 : 0
-            const colorHex = COLORS[p.color]?.hex ?? '#0071E3'
-            
-            // Calculate spacing based on number of projects
-            const x = N > 1 ? 110 + idx * (580 / (N - 1)) : 400
-            const y = 145 // Ground level baseline for emoji characters
-            
-            let emoji = '🌱' // Stage 1: No work done (0% progress)
-            if (pct >= 100) {
-              emoji = '🏙️' // Stage 4: 100%+ (The city/skyscraper emoji)
-            } else if (pct >= 30) {
-              emoji = '🏘️' // Stage 3: 30%-99% (The houses emoji)
-            } else if (pct > 0) {
-              emoji = '🏠' // Stage 2: 1%-29% (The house emoji)
-            }
-
-            return (
-              <g key={p.id}>
-                {/* Emoji Character */}
-                <g style={{ filter: overdrafted ? 'grayscale(90%) opacity(0.65)' : 'none', transition: 'all 0.3s' }}>
-                  <text 
-                    x={x} 
-                    y={y} 
-                    fontSize="54px" 
-                    textAnchor="middle" 
-                    style={{ 
-                      userSelect: 'none',
-                      filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.15))'
-                    }}
-                  >
-                    {emoji}
-                  </text>
-                </g>
-
-                {/* Mortgaged Warning Label Overlay */}
-                {overdrafted && (
-                  <g>
-                    <rect x={x - 30} y={115} width="60" height="15" rx="3" fill="#FF453A" opacity="0.9" />
-                    <text x={x} y={125} textAnchor="middle" fill="#FFFFFF" style={{ fontSize: '8px', fontWeight: '800', letterSpacing: '0.05em' }}>
-                      MORTGAGED
-                    </text>
-                  </g>
-                )}
-
-                {/* Building Label & Progress Indicator */}
-                <text x={x} y={180} textAnchor="middle" fill="var(--text-1)" style={{ fontSize: '11px', fontWeight: '700' }}>
-                  {p.name}
-                </text>
-                <text x={x} y={193} textAnchor="middle" fill={colorHex} style={{ fontSize: '10px', fontWeight: '600' }}>
-                  {Math.round(pct)}%
-                </text>
-              </g>
-            )
-          })}
-        </svg>
+              {/* Label */}
+              <div style={{ 
+                marginTop: '12px', 
+                fontSize: '12px', 
+                fontWeight: isActive ? '700' : '600', 
+                color: isActive 
+                  ? 'var(--text-1)' 
+                  : isPassed 
+                    ? 'var(--text-2)' 
+                    : 'var(--text-3)',
+                textAlign: 'center'
+              }}>
+                {stage.label}
+              </div>
+              <div style={{ 
+                fontSize: '10px', 
+                color: 'var(--text-3)', 
+                marginTop: '2px',
+                fontWeight: isActive ? '600' : '400',
+                textAlign: 'center'
+              }}>
+                {stage.desc}
+              </div>
+            </div>
+          );
+        })}
       </div>
+
+      {overdrafted && (
+        <div style={{
+          marginTop: '2rem',
+          padding: '6px 16px',
+          background: '#FF453A',
+          color: '#FFFFFF',
+          fontSize: '11px',
+          fontWeight: '800',
+          borderRadius: '980px',
+          boxShadow: '0 2px 8px rgba(255, 69, 58, 0.25)',
+          letterSpacing: '0.04em',
+          textTransform: 'uppercase'
+        }}>
+          ⚠️ CITY DECAY / MORTGAGED
+        </div>
+      )}
     </div>
-  )
+  );
 }
 
 /* ─────────────────────────────────────────────────────
@@ -1882,21 +1821,26 @@ function Dashboard({ state, setState }) {
       {/* Hero */}
       <div className="dashboard-hero">
         <div className="hero-bg" />
-        <div style={{ fontSize: 13, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-3)', marginBottom: 8 }}>Weekly Balance</div>
-        <div className="hero-amount">${weekRemaining.toLocaleString()}</div>
-        <div className="hero-sub">of ${totalCash.toLocaleString()} total · ${totalSpent} invested</div>
-        <div className="hero-tag">{Math.round((totalSpent / Math.max(1, totalCash)) * 100)}% complete this week</div>
+        <div style={{ fontSize: 13, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-3)', marginBottom: 8 }}>Today's Balance</div>
+        <div className="hero-amount">${dayRemaining.toLocaleString()}</div>
+        <div className="hero-sub">of ${dayBudget} allocated today · ${daySpent} invested</div>
+        <div className="hero-tag">
+          {dayBudget > 0 
+            ? `${Math.round((daySpent / dayBudget) * 100)}% complete today` 
+            : 'Rest day — no time cards allocated'
+          }
+        </div>
       </div>
 
       {/* Stats */}
       <div className="stat-grid">
         <div className="stat-card">
-          <div className="stat-label">Today's Budget</div>
-          <div className="stat-val blue">${dayBudget}</div>
+          <div className="stat-label">Weekly Balance</div>
+          <div className="stat-val blue">${weekRemaining.toLocaleString()}</div>
         </div>
         <div className="stat-card">
-          <div className="stat-label">Today Remaining</div>
-          <div className={`stat-val ${dayRemaining === 0 ? 'green' : 'muted'}`}>{dayRemaining === 0 && dayBudget > 0 ? '✓ Done' : `$${dayRemaining}`}</div>
+          <div className="stat-label">Today's Budget</div>
+          <div className="stat-val blue">${dayBudget}</div>
         </div>
         <div className="stat-card">
           <div className="stat-label">Tim's Mood</div>
@@ -2515,7 +2459,7 @@ function Dashboard({ state, setState }) {
       </div>
 
       {/* Unified Flowing Time City Landscape Breakout */}
-      <FlowingTimeCity projects={projects} overdrafted={overdrafted} />
+      <FlowingTimeCity overdrafted={overdrafted} dayBudget={dayBudget} daySpent={daySpent} />
 
       {/* Horizontal Audit Log Ledger Deck */}
       <div 
