@@ -1419,7 +1419,6 @@ function LoginModal({ state, setState, onClose, forced = false }) {
   )
 }
 
-
 function FlowingTimeCity({ projects, overdrafted }) {
   const N = projects.length
   
@@ -1449,13 +1448,13 @@ function FlowingTimeCity({ projects, overdrafted }) {
           </p>
         </div>
         <div style={{ display: 'flex', gap: '8px', fontSize: '10px', fontWeight: '700', textTransform: 'uppercase', color: 'var(--text-3)', background: 'var(--surface-2)', padding: '6px 12px', borderRadius: '20px' }}>
-          <span>0% 🚧</span>
+          <span>0% 🌱</span>
           <span>·</span>
-          <span>30% 🏡</span>
+          <span>1%-29% 🏠</span>
           <span>·</span>
-          <span>70% 🏢</span>
+          <span>30%-99% 🏘️</span>
           <span>·</span>
-          <span>100% 🏙️</span>
+          <span>100%+ 🏙️</span>
         </div>
       </div>
 
@@ -1473,63 +1472,126 @@ function FlowingTimeCity({ projects, overdrafted }) {
             left: 0
           }}
         >
+          {/* Sky Gradient */}
+          <defs>
+            {overdrafted ? (
+              <linearGradient id="skyGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#2C2C2E" />
+                <stop offset="100%" stopColor="#1C1C1E" />
+              </linearGradient>
+            ) : (
+              <linearGradient id="skyGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#C1E3FF" />
+                <stop offset="100%" stopColor="#E5F3FF" />
+              </linearGradient>
+            )}
+          </defs>
+          
+          {/* Sky Background Path */}
+          <rect x="0" y="0" width="800" height="200" rx="16" fill="url(#skyGrad)" />
+
           {/* Glowing Sun or Moon */}
           {overdrafted ? (
             <path d="M 700 25 A 15 15 0 1 0 715 40 A 12 12 0 1 1 700 25 Z" fill="#FF453A" opacity="0.45" />
           ) : (
-            <circle cx="700" cy="35" r="16" fill="#FFCC00" filter="drop-shadow(0 0 6px rgba(255,214,10,0.5))" />
+            <g>
+              <circle cx="710" cy="40" r="16" fill="#FFCC00" filter="drop-shadow(0 0 6px rgba(255,214,10,0.4))" />
+              <circle cx="705" cy="35" r="4" fill="#FFFFFF" opacity="0.6" />
+            </g>
           )}
 
-          {/* Floating Clouds */}
-          <path 
-            d="M 120 40 A 10 10 0 0 1 140 40 A 12 12 0 0 1 160 43 A 10 10 0 0 1 155 53 L 115 53 A 8 8 0 0 1 120 40 Z" 
-            fill={overdrafted ? "#6E6E73" : "#FFFFFF"} 
-            opacity={overdrafted ? "0.4" : "0.85"} 
-          />
-          <path 
-            d="M 480 25 A 8 8 0 0 1 495 25 A 10 10 0 0 1 510 28 A 8 8 0 0 1 505 36 L 475 36 A 6 6 0 0 1 480 25 Z" 
-            fill={overdrafted ? "#6E6E73" : "#FFFFFF"} 
-            opacity={overdrafted ? "0.3" : "0.8"} 
-          />
-
-          {/* Background rolling hills */}
-          <path 
-            d="M 0 160 Q 180 110 360 160 T 720 150 T 800 160 L 800 200 L 0 200 Z" 
-            fill={overdrafted ? "#48484A" : "#34C759"} 
-            opacity="0.12" 
-          />
-          
-          <path 
-            d="M 0 160 C 220 135, 380 175, 540 150 C 660 130, 740 165, 800 160 L 800 200 L 0 200 Z" 
-            fill={overdrafted ? "#3A3A3C" : "#30D158"} 
-            opacity="0.18" 
-          />
-
-          {/* Main Continuous Ground Path */}
-          <path 
-            d="M 0 160 Q 400 170 800 160 L 800 200 L 0 200 Z" 
-            fill={overdrafted ? "#2C2C2E" : "#34C759"} 
-            opacity="0.3" 
-          />
-          <line x1="0" y1="160" x2="800" y2="160" stroke={overdrafted ? "#48484A" : "#30D158"} strokeWidth="2.5" opacity="0.6" />
-
-          {/* Connecting Road linking the city together */}
-          <path 
-            d="M 0 170 C 200 160, 400 180, 600 165 C 700 158, 750 172, 800 170" 
-            fill="none" 
-            stroke={overdrafted ? "#AEAEB2" : "#AEAEB2"} 
-            strokeWidth="4" 
-            strokeDasharray="4,4" 
-            opacity="0.5" 
-          />
-
-          {/* Tiny decorative trees scattered between the buildings */}
-          {[50, 200, 380, 520, 710, 750].map((treeX, idx) => (
-            <g key={idx}>
-              <rect x={treeX} y="152" width="2" height="8" fill="#8B5A2B" />
-              <circle cx={treeX + 1} cy="148" r="5" fill={overdrafted ? "#6E6E73" : "#30D158"} opacity="0.9" />
+          {/* Flying Birds */}
+          {!overdrafted && (
+            <g>
+              <path d="M 610 35 Q 614 31 618 35 Q 622 31 626 35" fill="none" stroke="#A7C7E7" strokeWidth="1.5" strokeLinecap="round" />
+              <path d="M 632 42 Q 635 39 638 42 Q 641 39 644 42" fill="none" stroke="#A7C7E7" strokeWidth="1.2" strokeLinecap="round" />
             </g>
-          ))}
+          )}
+
+          {/* Round Bouncy Cloud 1 */}
+          <g style={{ opacity: overdrafted ? 0.3 : 0.9, transition: 'all 0.3s' }}>
+            <circle cx="110" cy="55" r="15" fill="#FFFFFF" />
+            <circle cx="130" cy="42" r="22" fill="#FFFFFF" />
+            <circle cx="152" cy="55" r="15" fill="#FFFFFF" />
+            <rect x="110" y="50" width="42" height="21" fill="#FFFFFF" />
+          </g>
+
+          {/* Round Bouncy Cloud 2 */}
+          <g style={{ opacity: overdrafted ? 0.25 : 0.85, transition: 'all 0.3s' }}>
+            <circle cx="430" cy="45" r="12" fill="#FFFFFF" />
+            <circle cx="448" cy="35" r="18" fill="#FFFFFF" />
+            <circle cx="466" cy="45" r="12" fill="#FFFFFF" />
+            <rect x="430" y="41" width="36" height="17" fill="#FFFFFF" />
+          </g>
+
+          {/* Background hills */}
+          <path 
+            d="M -20 160 Q 250 135 500 162 T 820 155 L 820 205 L -20 205 Z" 
+            fill={overdrafted ? "#3A3A3C" : "#A3E4D7"} 
+            opacity={overdrafted ? "0.35" : "0.55"} 
+          />
+
+          {/* Main Ground green path */}
+          <path 
+            d="M -20 160 Q 400 178 820 160 L 820 205 L -20 205 Z" 
+            fill={overdrafted ? "#2C2C2E" : "#82E0AA"} 
+            opacity="0.85" 
+          />
+          <line x1="0" y1="160" x2="800" y2="160" stroke={overdrafted ? "#48484A" : "#52BE80"} strokeWidth="2.5" opacity="0.6" />
+
+          {/* Winding road path linking the city together */}
+          <path 
+            d="M 0 172 Q 400 188 800 172" 
+            fill="none" 
+            stroke={overdrafted ? "#AEAEB2" : "#EBEDEF"} 
+            strokeWidth="5" 
+            strokeLinecap="round" 
+            opacity="0.9" 
+          />
+          <path 
+            d="M 0 172 Q 400 188 800 172" 
+            fill="none" 
+            stroke="#FFFFFF" 
+            strokeWidth="1.2" 
+            strokeDasharray="4,4" 
+            strokeLinecap="round" 
+            opacity="0.75" 
+          />
+
+          {/* Decorative Trees - Circles with Sticks! */}
+          {[50, 180, 360, 520, 700, 750].map((treeX, idx) => {
+            const treeHeight = idx % 2 === 0 ? 15 : 12;
+            const treeRadius = idx % 2 === 0 ? 9 : 7;
+            const foliageColor = overdrafted 
+              ? "#5D6D7E" 
+              : idx % 3 === 0 
+                ? "#28B463" 
+                : idx % 3 === 1 
+                  ? "#2E4053" 
+                  : "#58D68D"; 
+            return (
+              <g key={idx}>
+                {/* Stick (Trunk) */}
+                <line 
+                  x1={treeX} 
+                  y1="160" 
+                  x2={treeX} 
+                  y2={160 - treeHeight} 
+                  stroke="#8B5A2B" 
+                  strokeWidth="2.5" 
+                  strokeLinecap="round" 
+                />
+                {/* Circle (Foliage) */}
+                <circle 
+                  cx={treeX} 
+                  cy={160 - treeHeight} 
+                  r={treeRadius} 
+                  fill={foliageColor} 
+                  filter="drop-shadow(0 2px 4px rgba(0,0,0,0.08))" 
+                />
+              </g>
+            );
+          })}
 
           {/* Dynamic iOS Emoji Buildings */}
           {projects.map((p, idx) => {
@@ -1537,18 +1599,16 @@ function FlowingTimeCity({ projects, overdrafted }) {
             const colorHex = COLORS[p.color]?.hex ?? '#0071E3'
             
             // Calculate spacing based on number of projects
-            const x = N > 1 ? 100 + idx * (600 / (N - 1)) : 400
+            const x = N > 1 ? 110 + idx * (580 / (N - 1)) : 400
             const y = 145 // Ground level baseline for emoji characters
             
-            let emoji = '🚧' // 0% progress
+            let emoji = '🌱' // Stage 1: No work done (0% progress)
             if (pct >= 100) {
-              emoji = '🏙️' // 100%+ Skyscraper
-            } else if (pct >= 70) {
-              emoji = '🏢' // 70%-99% Apartment
+              emoji = '🏙️' // Stage 4: 100%+ (The city/skyscraper emoji)
             } else if (pct >= 30) {
-              emoji = '🏡' // 30%-69% Cozy Cottage
+              emoji = '🏘️' // Stage 3: 30%-99% (The houses emoji)
             } else if (pct > 0) {
-              emoji = '🏗️' // 1%-29% Under active construction
+              emoji = '🏠' // Stage 2: 1%-29% (The house emoji)
             }
 
             return (
