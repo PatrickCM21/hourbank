@@ -1639,8 +1639,6 @@ function Dashboard({ state, setState }) {
         nextLedger = [entry, ...s.ledger]
       }
 
-      alert(`🎉 Stopwatch stopped! You focused for ${timeFormatted} on "${proj.name}" and invested $${actualDelta}!`);
-
       return {
         ...s,
         projects: nextProjects,
@@ -1870,7 +1868,7 @@ function Dashboard({ state, setState }) {
       {/* Main content */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
           {/* Focus Cards */}
-          <div className="surface" style={{ padding: '1.5rem' }}>
+          <div className="surface" style={{ padding: '1.5rem', position: 'relative', zIndex: 10 }}>
           <div className="section-header">
             <span className="section-title"><Layers size={16} style={{ verticalAlign: 'middle', marginRight: 6 }} />Your Focus Projects</span>
             <span style={{ fontSize: 13, color: 'var(--text-3)' }}>{projects.length} Active Targets</span>
@@ -2360,7 +2358,7 @@ function Dashboard({ state, setState }) {
             <div className="section-header" style={{ marginBottom: '1.25rem' }}>
               <span className="section-title">
                 <Sliders size={16} style={{ verticalAlign: 'middle', marginRight: 6, color: 'var(--accent)' }} />
-                Weekly Debt & Standing Statistics
+                Non-Investment
               </span>
               <span style={{ fontSize: '12px', fontWeight: '500', color: 'var(--text-3)' }}>Real-time Audit Ledger</span>
             </div>
@@ -2379,25 +2377,25 @@ function Dashboard({ state, setState }) {
                 justifyContent: 'center'
               }}>
                 <div style={{ fontSize: '10px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-3)', marginBottom: '8px' }}>
-                  Standing ({selectedDay} so far)
+                  Money Uninvested ({selectedDay} so far)
                 </div>
                 
                 {overallVarianceSoFar < 0 ? (
                   <>
-                    <div style={{ fontSize: '20px', fontWeight: '800', color: 'var(--red)', letterSpacing: '-0.02em' }}>
-                      🚨 Time Debt
+                    <div style={{ fontSize: '24px', fontWeight: '800', color: 'var(--red)', letterSpacing: '-0.02em' }}>
+                      🚨 ${Math.abs(overallVarianceSoFar)}
                     </div>
-                    <div style={{ fontSize: '18px', fontWeight: '700', color: 'var(--text-1)', marginTop: '4px' }}>
-                      -{((Math.abs(overallVarianceSoFar)) / 100).toFixed(1)} hours
+                    <div style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-2)', marginTop: '4px' }}>
+                      Uninvested Cash
                     </div>
                   </>
                 ) : (
                   <>
-                    <div style={{ fontSize: '20px', fontWeight: '800', color: '#1A7A33', letterSpacing: '-0.02em' }}>
-                      🎉 Surplus Standing
+                    <div style={{ fontSize: '24px', fontWeight: '800', color: '#1A7A33', letterSpacing: '-0.02em' }}>
+                      🎉 $0
                     </div>
-                    <div style={{ fontSize: '18px', fontWeight: '700', color: 'var(--text-1)', marginTop: '4px' }}>
-                      +{((overallVarianceSoFar) / 100).toFixed(1)} hours
+                    <div style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-2)', marginTop: '4px' }}>
+                      Fully Invested!
                     </div>
                   </>
                 )}
