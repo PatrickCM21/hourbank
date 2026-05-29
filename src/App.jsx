@@ -2599,38 +2599,69 @@ function Dashboard({ state, setState }) {
 
       {/* Sidebar */}
         <div>
-          {/* Tim */}
-          <div className="sidebar-section">
-            <div className={`tim-mood-label ${mood}`}>{mood}</div>
-            <div className="tim-avatar"><Tim mood={mood} /></div>
-            <div className="tim-quote">{moodQuotes[mood]}</div>
-          </div>
-
-          {/* Ledger */}
-          <div className="sidebar-section">
-            <div className="sidebar-label"><Receipt size={12} /> Audit Log</div>
-            <div style={{ maxHeight: 280, overflowY: 'auto' }}>
-              {ledger.length === 0
-                ? <p style={{ fontSize: 13, textAlign: 'center', padding: '1rem 0' }}>No transactions yet.</p>
-                : ledger.slice(0, 20).map((e, i) => (
-                    <div key={i} className="ledger-entry">
-                      <div>
-                        <div className="ledger-desc">{e.desc}</div>
-                        <div className="ledger-time">{e.ts}</div>
-                      </div>
-                      <div className={`ledger-amt ${e.type}`}>
-                        {e.type === 'pos' ? '+' : e.type === 'neg' ? '−' : ''}${Math.abs(e.amt)}
-                      </div>
-                    </div>
-                  ))
-              }
-            </div>
+          {/* Tim Companion Widget */}
+          <div className="sidebar-section" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '2rem' }}>
+            <div className="tim-avatar" style={{ width: '130px', height: '130px', margin: 0 }}><Tim mood={mood} /></div>
           </div>
         </div>
       </div>
 
       {/* Unified Flowing Time City Landscape Breakout */}
       <FlowingTimeCity projects={projects} overdrafted={overdrafted} />
+
+      {/* Horizontal Audit Log Ledger Deck */}
+      <div 
+        className="surface" 
+        style={{ 
+          marginTop: '1.5rem', 
+          padding: '1.5rem', 
+          border: '1px solid var(--border)', 
+          background: 'rgba(255, 255, 255, 0.75)', 
+          backdropFilter: 'blur(10px)',
+          boxShadow: 'var(--shadow-sm)'
+        }}
+      >
+        <div className="section-header" style={{ marginBottom: '1.25rem' }}>
+          <span className="section-title" style={{ fontSize: '16px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <Receipt size={18} style={{ color: 'var(--accent)' }} /> 
+            Audit Log Ledger Statements
+          </span>
+          <span style={{ fontSize: '12px', fontWeight: '500', color: 'var(--text-3)' }}>Last 20 active time transactions</span>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '12px', maxHeight: '240px', overflowY: 'auto', paddingRight: '4px' }}>
+          {ledger.length === 0 ? (
+            <p style={{ fontSize: 13, color: 'var(--text-3)', padding: '1rem 0', gridColumn: '1/-1', textAlign: 'center' }}>
+              No time transactions recorded yet.
+            </p>
+          ) : (
+            ledger.slice(0, 20).map((e, i) => (
+              <div 
+                key={i} 
+                className="ledger-entry" 
+                style={{ 
+                  display: 'flex', 
+                  justifyContent: 'space-between', 
+                  alignItems: 'center', 
+                  padding: '12px 16px', 
+                  background: 'var(--surface-2)', 
+                  borderRadius: '12px',
+                  border: '1px solid var(--border)',
+                  margin: 0
+                }}
+              >
+                <div>
+                  <div className="ledger-desc" style={{ fontWeight: '600', fontSize: '13px', color: 'var(--text-1)' }}>{e.desc}</div>
+                  <div className="ledger-time" style={{ fontSize: '11px', color: 'var(--text-3)', marginTop: '2px' }}>{e.ts}</div>
+                </div>
+                <div className={`ledger-amt ${e.type}`} style={{ fontSize: '14px', fontWeight: '700' }}>
+                  {e.type === 'pos' ? '+' : e.type === 'neg' ? '−' : ''}${Math.abs(e.amt)}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
 
       {/* Modals */}
 
