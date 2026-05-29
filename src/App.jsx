@@ -2,7 +2,8 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import {
   ChevronUp, ChevronDown, ArrowRight, ArrowLeft,
   Play, Pause, X, ArrowLeftRight, Landmark, ShieldCheck, RotateCcw,
-  Sliders, CheckCircle2, Clock, Layers, Receipt, Check, AlertCircle
+  Sliders, CheckCircle2, Clock, Layers, Receipt, Check, AlertCircle,
+  History
 } from 'lucide-react'
 
 /* ─────────────────────────────────────────────────────
@@ -22,6 +23,154 @@ function todayKey() {
 function calcDisposable(wakeH, sleepH, meals, classes, work) {
   return Math.max(0, (sleepH - wakeH) * 7 - meals * 7 - classes - work)
 }
+function calcWeeklyDisposable(wakeHours, sleepHours, meals, classes, work) {
+  const totalActive = DAYS.reduce((sum, d) => {
+    const wake = wakeHours?.[d] ?? 9
+    const sleep = sleepHours?.[d] ?? 23
+    return sum + Math.max(0, sleep - wake)
+  }, 0)
+  return Math.max(0, totalActive - meals * 7 - classes - work)
+}
+function distributeProjectWeeklyToDaily(allocatedCash) {
+  const base = Math.floor((allocatedCash / 50) / 7) * 50
+  const rem = allocatedCash - base * 7
+  const result = {}
+  DAYS.forEach((d, i) => {
+    result[d] = base + (i < Math.round(rem / 50) ? 50 : 0)
+  })
+  return result
+}
+function getWeekNumber(d) {
+  const date = new Date(d)
+  date.setHours(0, 0, 0, 0)
+  const day = (date.getDay() + 6) % 7 // Monday = 0, Sunday = 6
+  date.setDate(date.getDate() - day + 3)
+  const firstThursday = date.getTime()
+  date.setMonth(0, 1)
+  if (date.getDay() !== 4) {
+    date.setMonth(0, 1 + ((4 - date.getDay() + 7) % 7))
+  }
+  return 1 + Math.ceil((firstThursday - date) / 604800000)
+}
+function isNewWeek(lastResetStr) {
+  if (!lastResetStr) return false
+  const now = new Date()
+  const last = new Date(lastResetStr)
+  
+  const nowYear = now.getFullYear()
+  const lastYear = last.getFullYear()
+  const nowWeek = getWeekNumber(now)
+  const lastWeek = getWeekNumber(last)
+  
+  return nowYear !== lastYear || nowWeek !== lastWeek
+}
+function performWeeklyRollover(s) {
+  const now = new Date()
+  const last = s.lastResetDate ? new Date(s.lastResetDate) : new Date()
+  const day = (last.getDay() + 6) % 7
+  const mon = new Date(last)
+  mon.setDate(last.getDate() - day)
+  const sun = new Date(mon)
+  sun.setDate(mon.getDate() + 6)
+  
+  const weekStartStr = mon.toISOString().split('T')[0]
+  const weekEndStr = sun.toISOString().split('T')[0]
+
+  const totalSpent = s.projects?.reduce((a, p) => a + (p.spentCash ?? 0), 0) ?? 0
+  const overdrafted = s.ledger?.some(e => e.desc?.includes('OVERDRAFT')) ?? false
+  const mood = overdrafted ? 'anxious' : 'happy' // Mood is anxious if overdrafted, otherwise happy for simplified rollover
+
+  const historyEntry = {
+    id: `w-${Date.now()}`,
+    weekStart: weekStartStr,
+    weekEnd: weekEndStr,
+    totalBudget: s.totalCash ?? 0,
+    totalSpent,
+    mood,
+    projects: s.projects?.map(p => ({
+      name: p.name,
+      allocated: p.allocatedCash,
+      spent: p.spentCash,
+      color: p.color
+    })) ?? [],
+    ledgerCount: s.ledger?.length ?? 0
+  }
+
+  const rolledProjects = s.projects?.map(p => ({
+    ...p,
+    spentCash: 0,
+    dailySpent: { Mon: 0, Tue: 0, Wed: 0, Thu: 0, Fri: 0, Sat: 0, Sun: 0 }
+  })) ?? []
+
+  const nextHistory = [...(s.history ?? []), historyEntry]
+
+  return {
+    ...s,
+    history: nextHistory,
+    projects: rolledProjects,
+    dailySpent: { Mon: 0, Tue: 0, Wed: 0, Thu: 0, Fri: 0, Sat: 0, Sun: 0 },
+    ledger: [{
+      ts: now.toLocaleTimeString(),
+      desc: `Automated weekly rollover — new fiscal week started`,
+      amt: s.totalCash ?? 0,
+      type: 'pos'
+    }],
+    lastResetDate: now.toISOString()
+  }
+}
+function migrateState(s) {
+  if (!s) return s
+  let migrated = false
+  const updated = { ...s }
+
+  if (!updated.wakeHours) {
+    const w = updated.wakeH ?? 9
+    updated.wakeHours = { Mon: w, Tue: w, Wed: w, Thu: w, Fri: w, Sat: w, Sun: w }
+    migrated = true
+  }
+  if (!updated.sleepHours) {
+    const sl = updated.sleepH ?? 23
+    updated.sleepHours = { Mon: sl, Tue: sl, Wed: sl, Thu: sl, Fri: sl, Sat: sl, Sun: sl }
+    migrated = true
+  }
+
+  if (updated.projects) {
+    updated.projects = updated.projects.map(p => {
+      let pChanged = false
+      const newP = { ...p }
+      if (!newP.dailyAllocations) {
+        newP.dailyAllocations = distributeProjectWeeklyToDaily(newP.allocatedCash ?? 0)
+        pChanged = true
+      }
+      if (!newP.dailySpent) {
+        newP.dailySpent = { Mon: 0, Tue: 0, Wed: 0, Thu: 0, Fri: 0, Sat: 0, Sun: 0 }
+        if (newP.spentCash > 0) {
+          const activeDay = s.selectedDay ?? 'Mon'
+          newP.dailySpent[activeDay] = newP.spentCash
+        }
+        pChanged = true
+      }
+      if (pChanged) migrated = true
+      return newP
+    })
+  }
+
+  if (!updated.lastResetDate) {
+    updated.lastResetDate = new Date().toISOString()
+    migrated = true
+  }
+  if (!updated.history) {
+    updated.history = []
+    migrated = true
+  }
+
+  // Auto rollover on load if it is a new week!
+  if (isNewWeek(updated.lastResetDate)) {
+    return performWeeklyRollover(updated)
+  }
+
+  return updated
+}
 function distributeByPriority(projects, totalCash) {
   const n = projects.length
   if (n === 0) return []
@@ -34,7 +183,18 @@ function distributeByPriority(projects, totalCash) {
     allocated += p.allocatedCash
   })
   if (sorted.length > 0) sorted[0].allocatedCash += totalCash - allocated
-  return projects.map(orig => ({ ...orig, ...(sorted.find(s => s.id === orig.id) ?? {}) }))
+  return projects.map(orig => {
+    const s = sorted.find(item => item.id === orig.id) ?? {}
+    const allocatedCash = s.allocatedCash ?? orig.allocatedCash ?? 0
+    const dailyAllocations = orig.dailyAllocations ?? distributeProjectWeeklyToDaily(allocatedCash)
+    const dailySpent = orig.dailySpent ?? { Mon: 0, Tue: 0, Wed: 0, Thu: 0, Fri: 0, Sat: 0, Sun: 0 }
+    return {
+      ...orig,
+      ...s,
+      dailyAllocations,
+      dailySpent
+    }
+  })
 }
 function defaultDailyCash(total) {
   const base = Math.floor((total / 50) / 7) * 50
@@ -284,9 +444,12 @@ function makeDefault() {
     { id: 'p4', name: 'Side Project',     priority: 4, color: 'orange', allocatedCash: 0, spentCash: 0 },
   ], totalCash)
   const dailyCash = defaultDailyCash(totalCash)
+  const wakeHours = { Mon: 9, Tue: 9, Wed: 9, Thu: 9, Fri: 9, Sat: 9, Sun: 9 }
+  const sleepHours = { Mon: 23, Tue: 23, Wed: 23, Thu: 23, Fri: 23, Sat: 23, Sun: 23 }
   return {
     step: 1, done: false,
     wakeH: 9, sleepH: 23, meals: 3, classes: 6, work: 0,
+    wakeHours, sleepHours,
     disposable: d, totalCash, dailyCash, projects,
     dailySpent: { Mon: 0, Tue: 0, Wed: 0, Thu: 0, Fri: 0, Sat: 0, Sun: 0 },
     cards: [], ledger: [], selectedDay: todayKey(),
@@ -365,7 +528,26 @@ function Onboarding({ state, setState }) {
     if (step === 5) {
       if (!balanced) return
       const entry = { ts: new Date().toLocaleTimeString(), desc: `Vault opened — $${totalCash.toLocaleString()} deposited`, amt: totalCash, type: 'pos' }
-      setState(s => ({ ...s, done: true, dailySpent: { Mon: 0, Tue: 0, Wed: 0, Thu: 0, Fri: 0, Sat: 0, Sun: 0 }, ledger: [entry] }))
+      setState(s => {
+        const w = s.wakeH ?? 9
+        const sl = s.sleepH ?? 23
+        const wakeHours = { Mon: w, Tue: w, Wed: w, Thu: w, Fri: w, Sat: w, Sun: w }
+        const sleepHours = { Mon: sl, Tue: sl, Wed: sl, Thu: sl, Fri: sl, Sat: sl, Sun: sl }
+        const updatedProjects = s.projects.map(p => ({
+          ...p,
+          dailyAllocations: p.dailyAllocations ?? distributeProjectWeeklyToDaily(p.allocatedCash),
+          dailySpent: p.dailySpent ?? { Mon: 0, Tue: 0, Wed: 0, Thu: 0, Fri: 0, Sat: 0, Sun: 0 }
+        }))
+        return {
+          ...s,
+          wakeHours,
+          sleepHours,
+          projects: updatedProjects,
+          done: true,
+          dailySpent: { Mon: 0, Tue: 0, Wed: 0, Thu: 0, Fri: 0, Sat: 0, Sun: 0 },
+          ledger: [entry]
+        }
+      })
     } else {
       setState(s => ({ ...s, step: s.step + 1 }))
     }
@@ -544,55 +726,7 @@ function Onboarding({ state, setState }) {
   )
 }
 
-/* ─────────────────────────────────────────────────────
-   Timer Overlay
-───────────────────────────────────────────────────── */
-function TimerOverlay({ timer, projects, onStart, onPause, onCancel, onCheat }) {
-  const project = projects.find(p => p.id === timer?.projectId)
-  const total = 1800
-  const secs = timer?.seconds ?? total
-  const mm = String(Math.floor(secs / 60)).padStart(2, '0')
-  const ss = String(secs % 60).padStart(2, '0')
 
-  const r = 80
-  const circ = 2 * Math.PI * r
-  const pct = secs / total
-  const offset = circ * (1 - pct)
-
-  return (
-    <div className="overlay">
-      <div className="timer-sheet">
-        <div className="timer-project">{project?.name ?? 'Focus Session'}</div>
-        <div className="timer-sub">30-min card · worth $50</div>
-        <div className="timer-ring-wrap">
-          <svg viewBox="0 0 200 200">
-            <circle className="timer-track" cx="100" cy="100" r={r} />
-            <circle
-              className="timer-fill"
-              cx="100" cy="100" r={r}
-              strokeDasharray={circ}
-              strokeDashoffset={offset}
-            />
-          </svg>
-          <div className="timer-text-wrap">
-            <div className="timer-countdown">{mm}:{ss}</div>
-            <div className="timer-val">$50</div>
-          </div>
-        </div>
-        <div className="timer-btns">
-          {timer?.running
-            ? <button className="btn btn-secondary" onClick={onPause}><Pause size={15} /> Pause</button>
-            : <button className="btn btn-primary" onClick={onStart}><Play size={15} /> Start</button>
-          }
-          <button className="btn btn-icon" onClick={onCancel}><X size={18} /></button>
-        </div>
-        <div style={{ marginTop: '0.5rem' }}>
-          <button className="timer-cheat" onClick={onCheat}>⚡ Skip (dev)</button>
-        </div>
-      </div>
-    </div>
-  )
-}
 
 /* ─────────────────────────────────────────────────────
    Modals
@@ -684,22 +818,35 @@ function ExcuseModal({ state, setState, onClose, onExecute }) {
 }
 
 function SettingsModal({ state, setState, onClose }) {
-  const [wakeH, setWakeH] = useState(state.wakeH)
-  const [sleepH, setSleepH] = useState(state.sleepH)
+  const [wakeHours, setWakeHours] = useState({ ...state.wakeHours })
+  const [sleepHours, setSleepHours] = useState({ ...state.sleepHours })
   const [meals, setMeals] = useState(state.meals)
   const [classes, setClasses] = useState(state.classes)
   const [work, setWork] = useState(state.work)
   const [projects, setProjects] = useState(state.projects.map(p => ({ ...p })))
 
-  const disposable = calcDisposable(wakeH, sleepH, meals, classes, work)
+  const disposable = calcWeeklyDisposable(wakeHours, sleepHours, meals, classes, work)
   const totalCash = disposable * 100
 
-  const updateTimes = (patch) => {
-    const next = { wakeH, sleepH, meals, classes, work, ...patch }
-    const nextDisp = calcDisposable(next.wakeH, next.sleepH, next.meals, next.classes, next.work)
+  const updateDailyTimes = (day, type, value) => {
+    const nextWakeHours = { ...wakeHours }
+    const nextSleepHours = { ...sleepHours }
+    if (type === 'wake') nextWakeHours[day] = value
+    else nextSleepHours[day] = value
+    
+    const nextDisp = calcWeeklyDisposable(nextWakeHours, nextSleepHours, meals, classes, work)
     const nextTotal = nextDisp * 100
-    setWakeH(next.wakeH)
-    setSleepH(next.sleepH)
+    
+    setWakeHours(nextWakeHours)
+    setSleepHours(nextSleepHours)
+    setProjects(distributeByPriority(projects.map(p => ({ ...p })), nextTotal))
+  }
+
+  const updateCommitments = (patch) => {
+    const next = { meals, classes, work, ...patch }
+    const nextDisp = calcWeeklyDisposable(wakeHours, sleepHours, next.meals, next.classes, next.work)
+    const nextTotal = nextDisp * 100
+    
     setMeals(next.meals)
     setClasses(next.classes)
     setWork(next.work)
@@ -745,14 +892,41 @@ function SettingsModal({ state, setState, onClose }) {
   const handleSave = () => {
     if (!balanced) return
     setState(s => {
-      const newDaily = defaultDailyCash(totalCash)
-      const newCards = rebuildCardsPreservingSpent(projects, newDaily, s.cards)
+      // Rebuild projects dailyAllocations so they match the new allocatedCash
+      const updatedProjects = projects.map(p => {
+        const oldP = s.projects.find(item => item.id === p.id)
+        
+        // If the allocated cash changed, or if it doesn't have dailyAllocations:
+        // We redistribute it, otherwise we preserve its existing daily allocations!
+        const nextAllocations = (oldP && oldP.allocatedCash === p.allocatedCash && oldP.dailyAllocations)
+          ? oldP.dailyAllocations
+          : distributeProjectWeeklyToDaily(p.allocatedCash)
+          
+        return {
+          ...p,
+          dailyAllocations: nextAllocations,
+          dailySpent: p.dailySpent ?? oldP?.dailySpent ?? { Mon: 0, Tue: 0, Wed: 0, Thu: 0, Fri: 0, Sat: 0, Sun: 0 }
+        }
+      })
+      
+      const newDaily = DAYS.reduce((acc, d) => {
+        acc[d] = updatedProjects.reduce((sum, pr) => sum + (pr.dailyAllocations?.[d] ?? 0), 0)
+        return acc
+      }, {})
+
+      const newCards = rebuildCardsPreservingSpent(updatedProjects, newDaily, s.cards)
       const entry = { ts: new Date().toLocaleTimeString(), desc: `Vault settings updated — $${totalCash.toLocaleString()} vault`, amt: totalCash - s.totalCash, type: 'neutral' }
+      
       return {
         ...s,
-        wakeH, sleepH, meals, classes, work,
-        disposable, totalCash,
-        projects,
+        wakeHours,
+        sleepHours,
+        meals,
+        classes,
+        work,
+        disposable,
+        totalCash,
+        projects: updatedProjects,
         dailyCash: newDaily,
         cards: newCards,
         ledger: [entry, ...s.ledger],
@@ -769,39 +943,55 @@ function SettingsModal({ state, setState, onClose }) {
           <button className="btn btn-icon btn-sm" onClick={onClose}><X size={16} /></button>
         </div>
 
-        {/* Section 1: Active Hours & Commitment */}
+        {/* Section 1: Active Hours per Day */}
         <div className="settings-section">
-          <div className="settings-section-title">Active Hours & Commitment</div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem', marginBottom: '1rem' }}>
-            <div className="modal-row" style={{ margin: 0 }}>
-              <label>Wake Up</label>
-              <select value={wakeH} onChange={e => updateTimes({ wakeH: +e.target.value })}>
-                {hourItems(5, 11).map(h => <option key={h.value} value={h.value}>{h.label}</option>)}
-              </select>
-            </div>
-            <div className="modal-row" style={{ margin: 0 }}>
-              <label>Sleep</label>
-              <select value={sleepH} onChange={e => updateTimes({ sleepH: +e.target.value })}>
-                {hourItems(17, 24).map(h => <option key={h.value} value={h.value}>{h.label}</option>)}
-              </select>
-            </div>
+          <div className="settings-section-title">Active Hours per Day</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '190px', overflowY: 'auto', paddingRight: '4px', marginBottom: '1rem' }}>
+            {DAYS.map(d => (
+              <div key={d} style={{ display: 'grid', gridTemplateColumns: '80px 1fr 1fr', gap: '10px', alignItems: 'center', background: 'var(--surface)', padding: '6px 12px', borderRadius: '6px', border: '1px solid var(--border)' }}>
+                <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-1)' }}>{DAYS_FULL[d]}</span>
+                
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <span style={{ fontSize: '11px', color: 'var(--text-3)' }}>Wake:</span>
+                  <select 
+                    value={wakeHours[d] ?? 9} 
+                    onChange={e => updateDailyTimes(d, 'wake', +e.target.value)}
+                    style={{ flex: 1, height: '28px', padding: '0 4px', fontSize: '12px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: '4px', cursor: 'pointer' }}
+                  >
+                    {hourItems(5, 11).map(h => <option key={h.value} value={h.value}>{h.label}</option>)}
+                  </select>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <span style={{ fontSize: '11px', color: 'var(--text-3)' }}>Sleep:</span>
+                  <select 
+                    value={sleepHours[d] ?? 23} 
+                    onChange={e => updateDailyTimes(d, 'sleep', +e.target.value)}
+                    style={{ flex: 1, height: '28px', padding: '0 4px', fontSize: '12px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: '4px', cursor: 'pointer' }}
+                  >
+                    {hourItems(12, 24).map(h => <option key={h.value} value={h.value}>{h.label}</option>)}
+                  </select>
+                </div>
+              </div>
+            ))}
           </div>
+
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem' }}>
             <div className="modal-row" style={{ margin: 0 }}>
               <label>Meals</label>
-              <select value={meals} onChange={e => updateTimes({ meals: +e.target.value })}>
+              <select value={meals} onChange={e => updateCommitments({ meals: +e.target.value })}>
                 {numItems(1, 5).map(n => <option key={n.value} value={n.value}>{n.label}h/d</option>)}
               </select>
             </div>
             <div className="modal-row" style={{ margin: 0 }}>
               <label>Classes</label>
-              <select value={classes} onChange={e => updateTimes({ classes: +e.target.value })}>
+              <select value={classes} onChange={e => updateCommitments({ classes: +e.target.value })}>
                 {numItems(0, 30).map(n => <option key={n.value} value={n.value}>{n.label}h/w</option>)}
               </select>
             </div>
             <div className="modal-row" style={{ margin: 0 }}>
               <label>Work</label>
-              <select value={work} onChange={e => updateTimes({ work: +e.target.value })}>
+              <select value={work} onChange={e => updateCommitments({ work: +e.target.value })}>
                 {numItems(0, 50).map(n => <option key={n.value} value={n.value}>{n.label}h/w</option>)}
               </select>
             </div>
@@ -894,6 +1084,152 @@ function SettingsModal({ state, setState, onClose }) {
         <div className="modal-footer" style={{ marginTop: '2rem' }}>
           <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
           <button className="btn btn-primary" onClick={handleSave} disabled={!balanced}>Save & Apply</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function HistoryModal({ state, setState, onClose }) {
+  const { history } = state
+  return (
+    <div className="overlay">
+      <div className="modal-sheet" style={{ maxWidth: '640px', width: '90%', maxHeight: '85vh', display: 'flex', flexDirection: 'column', padding: '2rem 2rem 1.5rem' }}>
+        <div className="modal-header">
+          <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <History size={18} style={{ color: 'var(--accent)' }} />
+            Weekly Investment History
+          </h3>
+          <button className="btn btn-icon btn-sm" onClick={onClose}><X size={16} /></button>
+        </div>
+        <p className="modal-desc" style={{ marginBottom: '1.2rem' }}>
+          Look back at your previous weeks' time allocations, spent focus hours, and Banker Tim's mood retrospective.
+        </p>
+
+        <div style={{ flex: 1, overflowY: 'auto', paddingRight: '4px', marginBottom: '1rem' }}>
+          {!history || history.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '3rem 1.5rem', background: 'var(--surface-2)', borderRadius: 'var(--r-md)', border: '1.5px dashed var(--border)' }}>
+              <Clock size={36} style={{ color: 'var(--text-3)', marginBottom: '1rem' }} />
+              <h4 style={{ fontSize: '15px', fontWeight: '600', color: 'var(--text-2)', marginBottom: '6px' }}>No history recorded yet</h4>
+              <p style={{ fontSize: '13px', color: 'var(--text-3)', maxWidth: '320px', margin: '0 auto', lineHeight: '1.5' }}>
+                "Immaculate ledgers are built day by day, week by week. Complete your current week, and your legacy will appear here." — Banker Tim
+              </p>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+              {history.slice().reverse().map((h) => {
+                const completionRate = h.totalBudget > 0 ? Math.round((h.totalSpent / h.totalBudget) * 100) : 0
+                
+                let timQuote = ""
+                if (h.mood === 'anxious') {
+                  timQuote = `"An overdraft? Outrageous! You borrowed time from the future and incurred heavy emotional interest. Keep a clean ledger!"`
+                } else if (completionRate >= 85) {
+                  timQuote = `"Magnificent! ${completionRate}% completion is a stellar investment. Your life equity has soared. Banker Tim is immensely pleased!"`
+                } else if (completionRate >= 50) {
+                  timQuote = `"Decent work. You completed ${completionRate}% of your budget, though some precious gold remains uninvested. Let's aim for perfection next week."`
+                } else {
+                  timQuote = `"A sluggish week (${completionRate}%). Time slipped like sand through your fingers. Banker Tim expects a far more robust ledger next time."`
+                }
+
+                return (
+                  <div key={h.id} style={{ 
+                    background: 'var(--surface-2)', 
+                    borderRadius: 'var(--r-md)', 
+                    border: '1px solid var(--border)', 
+                    padding: '1.2rem',
+                    boxShadow: 'var(--shadow-sm)'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.8rem', flexWrap: 'wrap', gap: '8px' }}>
+                      <div>
+                        <span style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-1)' }}>
+                          Week: {h.weekStart} to {h.weekEnd}
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                        <span style={{ 
+                          fontSize: '11px', 
+                          fontWeight: '600', 
+                          padding: '4px 8px', 
+                          borderRadius: '980px',
+                          background: h.mood === 'happy' ? 'var(--green-soft)' : 'var(--red-soft)',
+                          color: h.mood === 'happy' ? '#1A7A33' : 'var(--red)'
+                        }}>
+                          {h.mood === 'happy' ? '😌 Happy' : '😬 Anxious'}
+                        </span>
+                        <span style={{ 
+                          fontSize: '11px', 
+                          fontWeight: '600', 
+                          padding: '4px 8px', 
+                          borderRadius: '980px',
+                          background: 'var(--accent-soft)',
+                          color: 'var(--accent)'
+                        }}>
+                          {completionRate}% Complete
+                        </span>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: 'var(--text-2)', marginBottom: '0.6rem' }}>
+                      <span>Total Budgeted: <strong>${h.totalBudget.toLocaleString()}</strong> ({h.totalBudget / 100}h)</span>
+                      <span>Invested Focus: <strong>${h.totalSpent.toLocaleString()}</strong> ({h.totalSpent / 100}h)</span>
+                    </div>
+
+                    <div style={{ width: '100%', height: '6px', background: 'var(--border)', borderRadius: '3px', overflow: 'hidden', marginBottom: '1rem' }}>
+                      <div style={{ width: `${Math.min(100, completionRate)}%`, height: '100%', background: 'var(--accent)', borderRadius: '3px', transition: 'width 0.3s ease' }} />
+                    </div>
+
+                    {h.projects && h.projects.length > 0 && (
+                      <div style={{ background: 'var(--surface)', padding: '0.8rem', borderRadius: 'var(--r-sm)', border: '1px solid var(--border)', marginBottom: '1rem' }}>
+                        <div style={{ fontSize: '11px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-3)', marginBottom: '8px' }}>Project Allocation Breakdown</div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                          {h.projects.map((p, idx) => {
+                            const pAlloc = p.allocated ?? 0
+                            const pSpent = p.spent ?? 0
+                            const pPercent = pAlloc > 0 ? Math.round((pSpent / pAlloc) * 100) : 0
+                            const cTheme = COLORS[p.color] || COLORS.blue
+                            return (
+                              <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px' }}>
+                                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: '500' }}>
+                                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: cTheme.hex }} />
+                                    {p.name}
+                                  </span>
+                                  <span style={{ color: 'var(--text-2)', fontSize: '11px' }}>
+                                    ${pSpent} of ${pAlloc} ({pPercent}%)
+                                  </span>
+                                </div>
+                                <div style={{ width: '100%', height: '4px', background: 'var(--surface-2)', borderRadius: '2px', overflow: 'hidden' }}>
+                                  <div style={{ width: `${Math.min(100, pPercent)}%`, height: '100%', backgroundColor: cTheme.hex, borderRadius: '2px' }} />
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    <div style={{ 
+                      background: 'rgba(255, 204, 0, 0.04)', 
+                      borderLeft: '3px solid #FFCC00', 
+                      padding: '8px 12px', 
+                      borderRadius: '0 var(--r-sm) var(--r-sm) 0',
+                      fontSize: '12px',
+                      fontStyle: 'italic',
+                      color: 'var(--text-2)',
+                      lineHeight: '1.4'
+                    }}>
+                      <strong style={{ fontStyle: 'normal', color: 'var(--text-1)', marginRight: '4px' }}>Banker Tim says:</strong> 
+                      {timQuote}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
+        <div className="modal-footer" style={{ borderTop: '1px solid var(--border)', paddingTop: '1rem', marginTop: '0' }}>
+          <button className="btn btn-secondary btn-sm" onClick={onClose}>Close</button>
         </div>
       </div>
     </div>
@@ -1222,43 +1558,108 @@ function TimeCityBuilding({ project, overdrafted }) {
    Dashboard
 ───────────────────────────────────────────────────── */
 function Dashboard({ state, setState }) {
-  const { totalCash, dailyCash, projects, cards, ledger, selectedDay,
+  const { totalCash, projects, cards, ledger, selectedDay,
           timer, tradeOpen, borrowOpen, excuseOpen, settingsOpen,
           loginOpen, user, token, syncStatus } = state
-  const timerRef = useRef(null)
+  const [openDropdownProjId, setOpenDropdownProjId] = useState(null)
+  // Calculate dailyCash dynamically based on daily project allocations
+  const dailyCash = DAYS.reduce((acc, d) => {
+    acc[d] = projects.reduce((sum, p) => sum + (p.dailyAllocations?.[d] ?? 0), 0)
+    return acc
+  }, {})
 
-  // Timer tick
-  useEffect(() => {
-    if (timer?.running) {
-      timerRef.current = setInterval(() => {
-        setState(s => {
-          if (!s.timer) return s
-          const secs = s.timer.seconds - 1
-          if (secs <= 0) { clearInterval(timerRef.current); return completeCard(s) }
-          return { ...s, timer: { ...s.timer, seconds: secs } }
-        })
-      }, 1000)
-    } else {
-      clearInterval(timerRef.current)
-    }
-    return () => clearInterval(timerRef.current)
-  }, [timer?.running])
+  function logFocusTime(projId, deltaMins) {
+    setState(s => {
+      const proj = s.projects.find(p => p.id === projId)
+      if (!proj) return s
+      const day = s.selectedDay
+      const currentSpent = proj.dailySpent?.[day] ?? 0
+      
+      const cashDelta = Math.round((deltaMins / 30) * 50)
+      const newSpent = Math.max(0, currentSpent + cashDelta)
+      const actualDelta = newSpent - currentSpent
+      if (actualDelta === 0) return s
+      
+      const nextProjects = s.projects.map(p => {
+        if (p.id === projId) {
+          const nextDailySpentMap = {
+            ...p.dailySpent,
+            [day]: newSpent
+          }
+          const nextWeeklySpent = Object.values(nextDailySpentMap).reduce((a, b) => a + b, 0)
+          return {
+            ...p,
+            dailySpent: nextDailySpentMap,
+            spentCash: nextWeeklySpent
+          }
+        }
+        return p
+      })
 
-  function completeCard(s) {
-    const projId = s.timer?.projectId
-    if (!projId) return { ...s, timer: null }
-    const proj = s.projects.find(p => p.id === projId)
-    const entry = { ts: new Date().toLocaleTimeString(), desc: `30m Focus on "${proj?.name ?? '—'}"`, amt: -50, type: 'neg' }
-    const nextDailySpent = {
-      ...s.dailySpent,
-      [s.selectedDay]: (s.dailySpent[s.selectedDay] ?? 0) + 50
-    }
-    return {
-      ...s, timer: null,
-      projects: s.projects.map(p => p.id === projId ? { ...p, spentCash: Math.min(p.allocatedCash, p.spentCash + 50) } : p),
-      dailySpent: nextDailySpent,
-      ledger: [entry, ...s.ledger],
-    }
+      const nextDailySpent = {
+        ...s.dailySpent,
+        [day]: (s.dailySpent[day] ?? 0) + actualDelta
+      }
+
+      const desc = actualDelta > 0
+        ? `Logged ${Math.round(deltaMins)}m Focus on "${proj.name}"`
+        : `Removed ${Math.round(Math.abs(deltaMins))}m Focus on "${proj.name}"`
+      const entry = { ts: new Date().toLocaleTimeString(), desc, amt: -actualDelta, type: actualDelta > 0 ? 'neg' : 'pos' }
+
+      return {
+        ...s,
+        projects: nextProjects,
+        dailySpent: nextDailySpent,
+        ledger: [entry, ...s.ledger]
+      }
+    })
+  }
+
+  function payDownDebt(projId) {
+    setState(s => {
+      const proj = s.projects.find(p => p.id === projId)
+      if (!proj) return s
+      const day = s.selectedDay
+      const currentSpent = proj.dailySpent?.[day] ?? 0
+      
+      const cashDelta = 50 // 30 mins = $50
+      const newSpent = currentSpent + cashDelta
+      
+      const nextProjects = s.projects.map(p => {
+        if (p.id === projId) {
+          const nextDailySpentMap = {
+            ...p.dailySpent,
+            [day]: newSpent
+          }
+          const nextWeeklySpent = Object.values(nextDailySpentMap).reduce((a, b) => a + b, 0)
+          return {
+            ...p,
+            dailySpent: nextDailySpentMap,
+            spentCash: nextWeeklySpent
+          }
+        }
+        return p
+      })
+
+      const nextDailySpent = {
+        ...s.dailySpent,
+        [day]: (s.dailySpent[day] ?? 0) + cashDelta
+      }
+
+      const wasInDebt = proj.spentCash < proj.allocatedCash
+      const desc = wasInDebt
+        ? `Paid down debt: +30m Focus on "${proj.name}"`
+        : `Overpaid budget: +30m Focus on "${proj.name}"`
+
+      const entry = { ts: new Date().toLocaleTimeString(), desc, amt: -cashDelta, type: 'neg' }
+
+      return {
+        ...s,
+        projects: nextProjects,
+        dailySpent: nextDailySpent,
+        ledger: [entry, ...s.ledger]
+      }
+    })
   }
 
   // Metrics
@@ -1272,6 +1673,13 @@ function Dashboard({ state, setState }) {
   const pastUnspent = pastUnspentCash / 50
   const overdrafted = ledger.some(e => e.desc?.includes('OVERDRAFT'))
   const mood = overdrafted ? 'anxious' : pastUnspent > 2 ? 'sad' : 'happy'
+
+  // Selected Day Standing Calculations
+  const selectedIdx = DAYS.indexOf(selectedDay)
+  const daysUpToSelected = DAYS.slice(0, selectedIdx + 1)
+  const overallBudgetSoFar = daysUpToSelected.reduce((sum, d) => sum + (dailyCash[d] ?? 0), 0)
+  const overallSpentSoFar = daysUpToSelected.reduce((sum, d) => sum + (state.dailySpent?.[d] ?? 0), 0)
+  const overallVarianceSoFar = overallSpentSoFar - overallBudgetSoFar
 
   const moodQuotes = {
     happy: '"Your ledger is immaculate. I am most pleased."',
@@ -1345,9 +1753,9 @@ function Dashboard({ state, setState }) {
             </button>
           </div>
 
+          <button className="btn btn-secondary btn-sm" onClick={() => setState(s => ({ ...s, historyOpen: true }))}><History size={13} style={{ marginRight: '4px' }} /> History</button>
           <button className="btn btn-secondary btn-sm" onClick={() => setState(s => ({ ...s, tradeOpen: true, tradeFeedback: null }))}><ArrowLeftRight size={13} /> Trade</button>
           <button className="btn btn-secondary btn-sm" onClick={() => setState(s => ({ ...s, borrowOpen: true }))}><Landmark size={13} /> Overdraft</button>
-          <button className="btn btn-secondary btn-sm" onClick={() => setState(s => ({ ...s, excuseOpen: true }))}><ShieldCheck size={13} /> Pardon</button>
           <button className="btn btn-icon btn-sm" style={{ fontSize: 13 }} onClick={resetWeek} title="Reset week"><RotateCcw size={14} /></button>
           <button className="btn btn-icon btn-sm" style={{ fontSize: 13 }} onClick={() => setState(s => ({ ...s, settingsOpen: true }))} title="Adjust"><Sliders size={14} /></button>
         </div>
@@ -1400,11 +1808,191 @@ function Dashboard({ state, setState }) {
           )
         })}
       </div>
-
+      
       {/* Main content */}
       <div className="main-grid">
-        {/* Focus Cards */}
-        <div className="surface" style={{ padding: '1.5rem' }}>
+        <div>
+          {/* Focus Debt & Statistics Ledger */}
+          <div className="surface" style={{ padding: '1.5rem', marginBottom: '1.5rem', border: '1px solid var(--border)', background: 'rgba(255, 255, 255, 0.75)', backdropFilter: 'blur(10px)' }}>
+            <div className="section-header" style={{ marginBottom: '1.25rem' }}>
+              <span className="section-title">
+                <Sliders size={16} style={{ verticalAlign: 'middle', marginRight: 6, color: 'var(--accent)' }} />
+                Weekly Debt & Standing Statistics
+              </span>
+              <span style={{ fontSize: '12px', fontWeight: '500', color: 'var(--text-3)' }}>Real-time Audit Ledger</span>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.8fr', gap: '1.5rem', alignItems: 'stretch' }}>
+              {/* Overall Standing Card */}
+              <div style={{ 
+                background: overallVarianceSoFar < 0 
+                  ? 'linear-gradient(135deg, rgba(239, 68, 68, 0.08) 0%, rgba(239, 68, 68, 0.03) 100%)' 
+                  : 'linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(16, 185, 129, 0.03) 100%)',
+                border: overallVarianceSoFar < 0 ? '1.5px solid rgba(239, 68, 68, 0.2)' : '1.5px solid rgba(16, 185, 129, 0.2)',
+                borderRadius: 'var(--r-md)',
+                padding: '1.25rem',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center'
+              }}>
+                <div style={{ fontSize: '10px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-3)', marginBottom: '8px' }}>
+                  Standing ({selectedDay} so far)
+                </div>
+                
+                {overallVarianceSoFar < 0 ? (
+                  <>
+                    <div style={{ fontSize: '20px', fontWeight: '800', color: 'var(--red)', letterSpacing: '-0.02em' }}>
+                      🚨 Time Debt
+                    </div>
+                    <div style={{ fontSize: '18px', fontWeight: '700', color: 'var(--text-1)', marginTop: '4px' }}>
+                      -{((Math.abs(overallVarianceSoFar)) / 100).toFixed(1)} hours
+                    </div>
+                    <div style={{ fontSize: '12px', color: 'var(--text-2)', marginTop: '8px', lineHeight: '1.4' }}>
+                      You are currently behind your budget up to {selectedDay} by <strong>${Math.abs(overallVarianceSoFar)}</strong>. Click "Pay Down" to reduce debt!
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div style={{ fontSize: '20px', fontWeight: '800', color: '#1A7A33', letterSpacing: '-0.02em' }}>
+                      🎉 Surplus Standing
+                    </div>
+                    <div style={{ fontSize: '18px', fontWeight: '700', color: 'var(--text-1)', marginTop: '4px' }}>
+                      +{((overallVarianceSoFar) / 100).toFixed(1)} hours
+                    </div>
+                    <div style={{ fontSize: '12px', color: 'var(--text-2)', marginTop: '8px', lineHeight: '1.4' }}>
+                      Splendid! You are ahead of your budget up to {selectedDay} by <strong>${overallVarianceSoFar}</strong>. Your focus is flourishing!
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Individual Project Standing List */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={{ fontSize: '10px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-3)', marginBottom: '2px' }}>
+                  Project Balances (up to {selectedDay})
+                </div>
+                
+                {projects.map(p => {
+                  const pBudgetSoFar = daysUpToSelected.reduce((sum, d) => sum + (p.dailyAllocations?.[d] ?? 0), 0)
+                  const pSpentSoFar = daysUpToSelected.reduce((sum, d) => sum + (p.dailySpent?.[d] ?? 0), 0)
+                  const variance = pSpentSoFar - pBudgetSoFar
+                  const isDebt = variance < 0
+                  const isSurplus = variance > 0
+                  const cTheme = COLORS[p.color] || COLORS.blue
+                  const pct = pBudgetSoFar > 0 ? Math.min(100, Math.round((pSpentSoFar / pBudgetSoFar) * 100)) : 0
+
+                  return (
+                    <div key={p.id} style={{ 
+                      background: 'var(--surface-2)', 
+                      border: '1px solid var(--border)', 
+                      borderRadius: 'var(--r-sm)', 
+                      padding: '8px 12px',
+                      display: 'grid',
+                      gridTemplateColumns: '1.3fr 1.1fr 1fr',
+                      alignItems: 'center',
+                      gap: '8px'
+                    }}>
+                      {/* Project Title */}
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '600', fontSize: '12px', color: 'var(--text-1)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: cTheme.hex, display: 'inline-block' }} />
+                          {p.name}
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
+                          <div style={{ width: '45px', height: '3px', background: 'var(--border)', borderRadius: '1.5px', overflow: 'hidden' }}>
+                            <div style={{ width: `${pct}%`, height: '100%', backgroundColor: cTheme.hex, borderRadius: '1.5px' }} />
+                          </div>
+                          <span style={{ fontSize: '9px', color: 'var(--text-3)' }}>{pct}%</span>
+                        </div>
+                      </div>
+
+                      {/* Variance */}
+                      <div>
+                        {isDebt ? (
+                          <div style={{ display: 'inline-flex', flexDirection: 'column' }}>
+                            <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--red)' }}>
+                              🚨 −${Math.abs(variance)}
+                            </span>
+                            <span style={{ fontSize: '9px', color: 'var(--text-3)' }}>
+                              ({(Math.abs(variance) / 100).toFixed(1)}h debt)
+                            </span>
+                          </div>
+                        ) : isSurplus ? (
+                          <div style={{ display: 'inline-flex', flexDirection: 'column' }}>
+                            <span style={{ fontSize: '11px', fontWeight: '700', color: '#1A7A33' }}>
+                              ⚡ +${variance}
+                            </span>
+                            <span style={{ fontSize: '9px', color: 'var(--text-3)' }}>
+                              ({(variance / 100).toFixed(1)}h over)
+                            </span>
+                          </div>
+                        ) : (
+                          <div style={{ display: 'inline-flex', flexDirection: 'column' }}>
+                            <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--accent)' }}>
+                              ✓ Balanced
+                            </span>
+                            <span style={{ fontSize: '9px', color: 'var(--text-3)' }}>
+                              (0h deviation)
+                            </span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Actions */}
+                      <div style={{ textAlign: 'right' }}>
+                        <button 
+                          onClick={() => payDownDebt(p.id)}
+                          style={{
+                            width: '100%',
+                            height: '26px',
+                            borderRadius: '980px',
+                            background: isDebt ? 'linear-gradient(135deg, var(--red) 0%, #E03E3E 100%)' : 'var(--surface)',
+                            border: isDebt ? 'none' : '1px solid var(--border-strong)',
+                            color: isDebt ? '#FFFFFF' : 'var(--text-1)',
+                            fontSize: '10px',
+                            fontWeight: '700',
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '2px',
+                            boxShadow: isDebt ? '0 1px 4px rgba(239,68,68,0.15)' : 'none',
+                            transition: 'all 0.2s'
+                          }}
+                          onMouseEnter={e => {
+                            if (isDebt) {
+                              e.currentTarget.style.opacity = '0.9'
+                              e.currentTarget.style.transform = 'translateY(-0.5px)'
+                            } else {
+                              e.currentTarget.style.background = cTheme.bg
+                              e.currentTarget.style.borderColor = cTheme.hex
+                              e.currentTarget.style.color = cTheme.hex
+                            }
+                          }}
+                          onMouseLeave={e => {
+                            if (isDebt) {
+                              e.currentTarget.style.opacity = '1'
+                              e.currentTarget.style.transform = 'none'
+                            } else {
+                              e.currentTarget.style.background = 'var(--surface)'
+                              e.currentTarget.style.borderColor = 'var(--border-strong)'
+                              e.currentTarget.style.color = 'var(--text-1)'
+                            }
+                          }}
+                          title={isDebt ? 'Log 30m focus to pay down this project\'s time debt!' : 'Overpay focus (+30m) to boost this project beyond budget!'}
+                        >
+                          {isDebt ? '⚡ Pay Down' : '➕ Overpay'}
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* Focus Cards */}
+          <div className="surface" style={{ padding: '1.5rem' }}>
           <div className="section-header">
             <span className="section-title"><Layers size={16} style={{ verticalAlign: 'middle', marginRight: 6 }} />Your Focus Projects</span>
             <span style={{ fontSize: 13, color: 'var(--text-3)' }}>{projects.length} Active Targets</span>
@@ -1414,10 +2002,191 @@ function Dashboard({ state, setState }) {
             : <div className="cards-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '16px' }}>
                 {projects.map(p => {
                   const theme = COLORS[p.color] ?? COLORS.blue
-                  const isCompleted = p.spentCash >= p.allocatedCash && p.allocatedCash > 0
-                  const pct = p.allocatedCash > 0 ? (p.spentCash / p.allocatedCash) * 100 : 0
-                  const remaining = Math.max(0, p.allocatedCash - p.spentCash)
+                  const dailyAlloc = p.dailyAllocations?.[selectedDay] ?? 0
+                  const dailySp = p.dailySpent?.[selectedDay] ?? 0
+                  const dailyRem = Math.max(0, dailyAlloc - dailySp)
+                  const isDeactivated = dailyAlloc === 0
                   
+                  // Weekly metrics for summary
+                  const weeklyAlloc = p.allocatedCash ?? 0
+                  const weeklySp = p.spentCash ?? 0
+                  
+                  const dailyPct = dailyAlloc > 0 ? (dailySp / dailyAlloc) * 100 : 0
+                  const isDailyCompleted = dailySp >= dailyAlloc && dailyAlloc > 0
+
+                  const handleAdjust = (delta) => {
+                    setState(s => {
+                      const updatedProjects = s.projects.map(item => {
+                        if (item.id === p.id) {
+                          const currentAlloc = item.dailyAllocations?.[selectedDay] ?? 0
+                          const newAlloc = Math.max(0, currentAlloc + delta)
+                          const nextAllocations = { ...item.dailyAllocations, [selectedDay]: newAlloc }
+                          const newWeeklyAlloc = Object.values(nextAllocations).reduce((a, b) => a + b, 0)
+                          return {
+                            ...item,
+                            dailyAllocations: nextAllocations,
+                            allocatedCash: newWeeklyAlloc
+                          }
+                        }
+                        return item
+                      })
+                      return {
+                        ...s,
+                        projects: updatedProjects
+                      }
+                    })
+                  }
+
+                  const toggleActive = () => {
+                    if (isDeactivated) {
+                      handleAdjust(100) // Default to 1 hour ($100) when turning on
+                    } else {
+                      handleAdjust(-dailyAlloc) // Go down to 0
+                    }
+                  }
+
+                  if (isDeactivated) {
+                    return (
+                      <div
+                        key={p.id}
+                        className="focus-card deactivated"
+                        style={{
+                          backgroundColor: 'var(--surface-2)',
+                          borderColor: 'var(--border)',
+                          borderWidth: '1.5px',
+                          borderStyle: 'dashed',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          justifyContent: 'space-between',
+                          gap: '12px',
+                          padding: '18px',
+                          minHeight: '180px',
+                          opacity: 0.65,
+                          transition: 'all 0.25s ease',
+                          background: 'repeating-linear-gradient(45deg, var(--surface-2), var(--surface-2) 10px, rgba(0,0,0,0.01) 10px, rgba(0,0,0,0.01) 20px)',
+                          position: 'relative',
+                          overflow: 'visible'
+                        }}
+                      >
+                        <div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                            <span
+                              className="card-project-tag"
+                              style={{
+                                backgroundColor: 'var(--text-3)',
+                                color: '#FFFFFF',
+                                fontSize: '10px',
+                                fontWeight: '700',
+                                padding: '3px 9px'
+                              }}
+                            >
+                              Rank {p.priority}
+                            </span>
+                            
+                            {/* Top Right Allocation Dropdown */}
+                            <div style={{ position: 'relative' }}>
+                              <button 
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setOpenDropdownProjId(openDropdownProjId === p.id ? null : p.id)
+                                }}
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  fontSize: '11px',
+                                  fontWeight: '700',
+                                  color: 'var(--text-2)',
+                                  background: 'var(--surface-3)',
+                                  border: '1px solid var(--border)',
+                                  borderRadius: '6px',
+                                  padding: '4px 8px',
+                                  cursor: 'pointer',
+                                  transition: 'all 0.2s',
+                                  outline: 'none'
+                                }}
+                                title="Set today's budget"
+                              >
+                                <Sliders size={10} /> Rest
+                              </button>
+                              
+                              {openDropdownProjId === p.id && (
+                                <div 
+                                  style={{
+                                    position: 'absolute',
+                                    top: '28px',
+                                    right: '0',
+                                    background: 'var(--surface)',
+                                    border: '1px solid var(--border-strong)',
+                                    borderRadius: 'var(--r-sm)',
+                                    boxShadow: 'var(--shadow-md)',
+                                    padding: '6px',
+                                    zIndex: 100,
+                                    minWidth: '130px',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '2px'
+                                  }}
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <div style={{ fontSize: '9px', fontWeight: '700', color: 'var(--text-3)', padding: '4px 8px', textTransform: 'uppercase', borderBottom: '1px solid var(--border)', marginBottom: '4px' }}>Today's Budget</div>
+                                  {[0, 50, 100, 150, 200, 250, 300, 400, 500].map(amt => {
+                                    const hours = amt / 100
+                                    const label = amt === 0 ? '0h (Rest)' : `${hours}h ($${amt})`
+                                    return (
+                                      <button
+                                        key={amt}
+                                        onClick={() => {
+                                          setOpenDropdownProjId(null)
+                                          handleAdjust(amt - dailyAlloc)
+                                        }}
+                                        style={{
+                                          textAlign: 'left',
+                                          border: 'none',
+                                          background: dailyAlloc === amt ? 'var(--accent-soft)' : 'none',
+                                          color: dailyAlloc === amt ? 'var(--accent)' : 'var(--text-1)',
+                                          padding: '5px 8px',
+                                          fontSize: '12px',
+                                          borderRadius: '4px',
+                                          cursor: 'pointer',
+                                          fontWeight: dailyAlloc === amt ? '600' : '400',
+                                          transition: 'all 0.15s',
+                                          width: '100%'
+                                        }}
+                                        onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--surface-2)'}
+                                        onMouseLeave={e => e.currentTarget.style.backgroundColor = dailyAlloc === amt ? 'var(--accent-soft)' : 'transparent'}
+                                      >
+                                        {label}
+                                      </button>
+                                    )
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          
+                          <h3 className="card-name" style={{ marginTop: '10px', fontSize: '16px', fontWeight: '700', color: 'var(--text-3)' }}>
+                            {p.name}
+                          </h3>
+                        </div>
+
+                        <div style={{ fontSize: '12px', color: 'var(--text-3)', fontStyle: 'italic', margin: '8px 0' }}>
+                          Rest Day. No time scheduled.
+                        </div>
+
+                        <div className="card-footer" style={{ zIndex: 1 }}>
+                          <button
+                            className="btn btn-secondary btn-sm"
+                            onClick={toggleActive}
+                            style={{ width: '100%', fontSize: '12px', fontWeight: '600', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', height: '34px' }}
+                          >
+                            + Schedule 1 Hour
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  }
+
                   return (
                     <div
                       key={p.id}
@@ -1432,8 +2201,10 @@ function Dashboard({ state, setState }) {
                         justifyContent: 'space-between',
                         gap: '12px',
                         padding: '18px',
-                        minHeight: '160px',
-                        transition: 'all 0.25s ease'
+                        minHeight: '180px',
+                        transition: 'all 0.25s ease',
+                        position: 'relative',
+                        overflow: 'visible'
                       }}
                     >
                       <div>
@@ -1450,9 +2221,87 @@ function Dashboard({ state, setState }) {
                           >
                             Rank {p.priority}
                           </span>
-                          <span style={{ fontSize: '13px', fontWeight: '600', color: theme.hex }}>
-                            ${remaining} left
-                          </span>
+                          
+                          {/* Top Right Allocation Dropdown */}
+                          <div style={{ position: 'relative' }}>
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setOpenDropdownProjId(openDropdownProjId === p.id ? null : p.id)
+                              }}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                fontSize: '11px',
+                                fontWeight: '700',
+                                color: theme.hex,
+                                background: '#FFFFFF',
+                                border: `1.5px solid ${theme.border}`,
+                                borderRadius: '6px',
+                                padding: '4px 8px',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s',
+                                outline: 'none'
+                              }}
+                              title="Set today's budget"
+                            >
+                              <Sliders size={10} /> {(dailyAlloc / 100).toFixed(1)}h
+                            </button>
+                            
+                            {openDropdownProjId === p.id && (
+                              <div 
+                                style={{
+                                  position: 'absolute',
+                                  top: '28px',
+                                  right: '0',
+                                  background: 'var(--surface)',
+                                  border: '1px solid var(--border-strong)',
+                                  borderRadius: 'var(--r-sm)',
+                                  boxShadow: 'var(--shadow-md)',
+                                  padding: '6px',
+                                  zIndex: 100,
+                                  minWidth: '130px',
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  gap: '2px'
+                                }}
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <div style={{ fontSize: '9px', fontWeight: '700', color: 'var(--text-3)', padding: '4px 8px', textTransform: 'uppercase', borderBottom: '1px solid var(--border)', marginBottom: '4px' }}>Today's Budget</div>
+                                {[0, 50, 100, 150, 200, 250, 300, 400, 500].map(amt => {
+                                  const hours = amt / 100
+                                  const label = amt === 0 ? '0h (Rest)' : `${hours}h ($${amt})`
+                                  return (
+                                    <button
+                                      key={amt}
+                                      onClick={() => {
+                                        setOpenDropdownProjId(null)
+                                        handleAdjust(amt - dailyAlloc)
+                                      }}
+                                      style={{
+                                        textAlign: 'left',
+                                        border: 'none',
+                                        background: dailyAlloc === amt ? 'var(--accent-soft)' : 'none',
+                                        color: dailyAlloc === amt ? 'var(--accent)' : 'var(--text-1)',
+                                        padding: '5px 8px',
+                                        fontSize: '12px',
+                                        borderRadius: '4px',
+                                        cursor: 'pointer',
+                                        fontWeight: dailyAlloc === amt ? '600' : '400',
+                                        transition: 'all 0.15s',
+                                        width: '100%'
+                                      }}
+                                      onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--surface-2)'}
+                                      onMouseLeave={e => e.currentTarget.style.backgroundColor = dailyAlloc === amt ? 'var(--accent-soft)' : 'transparent'}
+                                    >
+                                      {label}
+                                    </button>
+                                  )
+                                })}
+                              </div>
+                            )}
+                          </div>
                         </div>
                         <h3 className="card-name" style={{ marginTop: '10px', fontSize: '16px', fontWeight: '700', color: 'var(--text-1)' }}>
                           {p.name}
@@ -1462,45 +2311,83 @@ function Dashboard({ state, setState }) {
                       <div>
                         {/* Custom Progress Bar */}
                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', fontWeight: '600', color: 'var(--text-2)' }}>
-                          <span>${p.spentCash} / ${p.allocatedCash}</span>
-                          <span>{Math.round(pct)}%</span>
+                          <span>Today remaining:</span>
+                          <span style={{ color: dailyRem === 0 ? 'var(--green)' : 'var(--text-1)', fontWeight: '700' }}>
+                            {dailyRem === 0 ? '✓ Completed' : `$${dailyRem} left`}
+                          </span>
                         </div>
-                        <div className="proj-progress-wrap">
+                        
+                        <div className="proj-progress-wrap" style={{ margin: '8px 0 6px' }}>
                           <div
                             className="proj-progress-fill"
                             style={{
-                              width: `${Math.min(100, pct)}%`,
+                              width: `${Math.min(100, dailyPct)}%`,
                               backgroundColor: theme.hex
                             }}
                           />
                         </div>
+                        
+                        {/* Daily Spent and Weekly Total Helper */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-2)', fontWeight: '500' }}>
+                          <span>Today: ${dailySp} / ${dailyAlloc}</span>
+                          <span style={{ color: 'var(--text-3)' }}>Weekly: ${weeklySp}/${weeklyAlloc}</span>
+                        </div>
                       </div>
                       
-                      <div className="card-footer" style={{ marginTop: '4px' }}>
-                        {isCompleted
-                          ? <span className="card-done-badge" style={{ color: 'var(--green)', fontWeight: '700', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                              <CheckCircle2 size={14} /> Completed
-                            </span>
-                          : <button
-                              className="card-start-btn"
-                              onClick={() => startTimer(p.id)}
-                              style={{
-                                backgroundColor: theme.hex,
-                                color: '#FFFFFF',
-                                padding: '6px 14px',
-                                fontSize: '12px',
-                                fontWeight: '600',
-                                width: '100%',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                gap: '6px',
-                                transition: 'opacity 0.2s'
-                              }}
-                            >
-                              <Clock size={12} /> Focus Session
-                            </button>
-                        }
+                      {/* Direct Themed Focus Log Buttons */}
+                      <div style={{ display: 'flex', gap: '8px', zIndex: 1 }}>
+                        <button
+                          onClick={() => logFocusTime(p.id, -30)}
+                          disabled={dailySp <= 0}
+                          style={{
+                            flex: '1',
+                            height: '34px',
+                            border: `1.5px solid ${theme.border}`,
+                            color: theme.hex,
+                            background: 'rgba(255,255,255,0.4)',
+                            borderRadius: '980px',
+                            fontSize: '12px',
+                            fontWeight: '600',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '4px',
+                            transition: 'all 0.2s',
+                            opacity: dailySp <= 0 ? 0.4 : 1
+                          }}
+                          onMouseEnter={e => { if (dailySp > 0) e.currentTarget.style.background = theme.bg }}
+                          onMouseLeave={e => { if (dailySp > 0) e.currentTarget.style.background = 'rgba(255,255,255,0.4)' }}
+                          title="Undo 30 minutes of focus today"
+                        >
+                          - 30m
+                        </button>
+                        
+                        <button
+                          onClick={() => logFocusTime(p.id, 30)}
+                          style={{
+                            flex: '2.5',
+                            height: '34px',
+                            background: theme.hex,
+                            color: '#FFFFFF',
+                            border: 'none',
+                            borderRadius: '980px',
+                            fontSize: '12px',
+                            fontWeight: '600',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '6px',
+                            boxShadow: `0 2px 6px ${theme.border}`,
+                            transition: 'all 0.2s'
+                          }}
+                          onMouseEnter={e => e.currentTarget.style.opacity = 0.9}
+                          onMouseLeave={e => e.currentTarget.style.opacity = 1}
+                          title="Log 30 minutes of focus today"
+                        >
+                          <Clock size={12} /> + 30m Focus
+                        </button>
                       </div>
                     </div>
                   )
@@ -1508,8 +2395,9 @@ function Dashboard({ state, setState }) {
               </div>
           }
         </div>
+      </div>
 
-        {/* Sidebar */}
+      {/* Sidebar */}
         <div>
           {/* Tim */}
           <div className="sidebar-section">
@@ -1555,19 +2443,11 @@ function Dashboard({ state, setState }) {
       </div>
 
       {/* Modals */}
-      {timer && (
-        <TimerOverlay
-          timer={timer} projects={projects}
-          onStart={() => setState(s => ({ ...s, timer: { ...s.timer, running: true } }))}
-          onPause={() => setState(s => ({ ...s, timer: { ...s.timer, running: false } }))}
-          onCancel={() => setState(s => ({ ...s, timer: null }))}
-          onCheat={() => setState(s => completeCard(s))}
-        />
-      )}
+
       {tradeOpen && <TradeModal state={state} setState={setState} onClose={() => setState(s => ({ ...s, tradeOpen: false }))} onExecute={executeTrade} />}
       {borrowOpen && <BorrowModal state={state} setState={setState} onClose={() => setState(s => ({ ...s, borrowOpen: false }))} onExecute={executeBorrow} />}
-      {excuseOpen && <ExcuseModal state={state} setState={setState} onClose={() => setState(s => ({ ...s, excuseOpen: false }))} onExecute={executeExcuse} />}
       {settingsOpen && <SettingsModal state={state} setState={setState} onClose={() => setState(s => ({ ...s, settingsOpen: false }))} />}
+      {state.historyOpen && <HistoryModal state={state} setState={setState} onClose={() => setState(s => ({ ...s, historyOpen: false }))} />}
     </div>
   )
 }
@@ -1579,7 +2459,12 @@ export default function App() {
   const [state, setState] = useState(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY)
-      if (saved) return JSON.parse(saved)
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        const migrated = migrateState(parsed)
+        migrated.selectedDay = todayKey()
+        return migrated
+      }
     } catch (_) {}
     return makeDefault()
   })
@@ -1639,11 +2524,14 @@ export default function App() {
           if (res.ok) {
             const data = await res.json()
             if (data.state) {
-              setState(s => ({
-                ...s,
-                ...data.state,
-                syncStatus: 'synced'
-              }))
+              setState(s => {
+                const migrated = migrateState({ ...s, ...data.state })
+                migrated.selectedDay = todayKey()
+                return {
+                  ...migrated,
+                  syncStatus: 'synced'
+                }
+              })
             }
           } else {
             // Token might be invalid or expired and refresh failed
@@ -1663,6 +2551,31 @@ export default function App() {
     }
   }, [])
 
+  // Auto rollover on new week while app is active
+  useEffect(() => {
+    const checkRollover = () => {
+      setState(s => {
+        if (s.lastResetDate && isNewWeek(s.lastResetDate)) {
+          return performWeeklyRollover(s)
+        }
+        return s
+      })
+    }
+    const mountTimer = setTimeout(checkRollover, 2000)
+    const interval = setInterval(checkRollover, 60000)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        checkRollover()
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => {
+      clearTimeout(mountTimer)
+      clearInterval(interval)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [])
+
   // Auto-sync debounced trigger
   useEffect(() => {
     if (!state.token || !state.user) return
@@ -1672,6 +2585,8 @@ export default function App() {
       done: state.done,
       wakeH: state.wakeH,
       sleepH: state.sleepH,
+      wakeHours: state.wakeHours,
+      sleepHours: state.sleepHours,
       meals: state.meals,
       classes: state.classes,
       work: state.work,
@@ -1681,7 +2596,9 @@ export default function App() {
       projects: state.projects,
       dailySpent: state.dailySpent,
       ledger: state.ledger,
-      selectedDay: state.selectedDay
+      selectedDay: state.selectedDay,
+      history: state.history,
+      lastResetDate: state.lastResetDate
     }
 
     setState(s => ({ ...s, syncStatus: 'syncing' }))
@@ -1746,6 +2663,8 @@ export default function App() {
     state.done,
     state.wakeH,
     state.sleepH,
+    JSON.stringify(state.wakeHours),
+    JSON.stringify(state.sleepHours),
     state.meals,
     state.classes,
     state.work,
@@ -1755,7 +2674,9 @@ export default function App() {
     JSON.stringify(state.projects),
     JSON.stringify(state.dailySpent),
     JSON.stringify(state.ledger),
-    state.selectedDay
+    state.selectedDay,
+    JSON.stringify(state.history),
+    state.lastResetDate
   ])
 
   if (!state.token || !state.user) {
