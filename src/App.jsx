@@ -1432,10 +1432,10 @@ function FlowingTimeCity({ overdrafted, dayBudget, daySpent }) {
   }
 
   const stages = [
-    { id: 1, emoji: '🌱', label: 'Sprout', desc: '0% done' },
-    { id: 2, emoji: '🏠', label: 'Cozy House', desc: '1%-29% done' },
-    { id: 3, emoji: '🏘️', label: 'Neighborhood', desc: '30%-99% done' },
-    { id: 4, emoji: '🏙️', label: 'Metropolis', desc: '100%+ done' }
+    { id: 1, emoji: '🌱', label: 'Sprout' },
+    { id: 2, emoji: '🏠', label: 'Cozy House' },
+    { id: 3, emoji: '🏘️', label: 'Neighborhood' },
+    { id: 4, emoji: '🏙️', label: 'Metropolis' }
   ];
 
   return (
@@ -1445,7 +1445,7 @@ function FlowingTimeCity({ overdrafted, dayBudget, daySpent }) {
         marginTop: '2rem', 
         padding: '2.5rem 2rem', 
         border: '1px solid var(--border)', 
-        background: '#FFFFFF', 
+        background: 'linear-gradient(135deg, #E0F2FE 0%, #DCFCE7 100%)', 
         borderRadius: 'var(--r-xl)',
         boxShadow: 'var(--shadow-sm)',
         display: 'flex',
@@ -1458,7 +1458,7 @@ function FlowingTimeCity({ overdrafted, dayBudget, daySpent }) {
           <Landmark size={20} style={{ color: 'var(--accent)' }} /> 
           Time City Panorama
         </h3>
-        <p style={{ fontSize: '13px', color: 'var(--text-3)', marginTop: '4px', margin: 0 }}>
+        <p style={{ fontSize: '13px', color: 'var(--text-2)', marginTop: '4px', margin: 0, fontWeight: '500' }}>
           Your daily focus progression represented in minimal stages of construction.
         </p>
       </div>
@@ -1466,36 +1466,13 @@ function FlowingTimeCity({ overdrafted, dayBudget, daySpent }) {
       <div style={{ 
         position: 'relative', 
         display: 'flex', 
-        justifyContent: 'space-between', 
+        justifyContent: 'space-around', 
         alignItems: 'center', 
         width: '100%', 
         maxWidth: '680px', 
         padding: '0 1rem',
         margin: '1rem 0'
       }}>
-        {/* Connecting line */}
-        <div style={{
-          position: 'absolute',
-          top: '45px',
-          left: '12.5%',
-          right: '12.5%',
-          height: '2px',
-          background: 'var(--border-strong)',
-          zIndex: 1
-        }} />
-        
-        {/* Active fill line */}
-        <div style={{
-          position: 'absolute',
-          top: '45px',
-          left: '12.5%',
-          width: `${((activeStage - 1) / 3) * 75}%`,
-          height: '2px',
-          background: overdrafted ? 'var(--text-3)' : 'var(--accent)',
-          zIndex: 2,
-          transition: 'width 0.4s ease'
-        }} />
-
         {stages.map((stage) => {
           const isActive = activeStage === stage.id;
           const isPassed = activeStage > stage.id;
@@ -1529,7 +1506,7 @@ function FlowingTimeCity({ overdrafted, dayBudget, daySpent }) {
                   justifyContent: 'center',
                   fontSize: '40px',
                   boxShadow: isActive 
-                    ? '0 12px 32px rgba(0, 0, 0, 0.06), 0 4px 12px rgba(0, 113, 227, 0.08)' 
+                    ? '0 12px 32px rgba(0, 0, 0, 0.08), 0 4px 12px rgba(0, 113, 227, 0.1)' 
                     : 'var(--shadow-xs)',
                   userSelect: 'none',
                   filter: overdrafted 
@@ -1555,19 +1532,10 @@ function FlowingTimeCity({ overdrafted, dayBudget, daySpent }) {
                   ? 'var(--text-1)' 
                   : isPassed 
                     ? 'var(--text-2)' 
-                    : 'var(--text-3)',
+                    : 'var(--text-2)',
                 textAlign: 'center'
               }}>
                 {stage.label}
-              </div>
-              <div style={{ 
-                fontSize: '10px', 
-                color: 'var(--text-3)', 
-                marginTop: '2px',
-                fontWeight: isActive ? '600' : '400',
-                textAlign: 'center'
-              }}>
-                {stage.desc}
               </div>
             </div>
           );
@@ -1593,6 +1561,7 @@ function FlowingTimeCity({ overdrafted, dayBudget, daySpent }) {
     </div>
   );
 }
+
 
 /* ─────────────────────────────────────────────────────
    Dashboard
@@ -1873,185 +1842,6 @@ function Dashboard({ state, setState }) {
       
       {/* Main content */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-          {/* Focus Debt & Statistics Ledger */}
-          <div className="surface" style={{ padding: '1.5rem', marginBottom: '1.5rem', border: '1px solid var(--border)', background: 'rgba(255, 255, 255, 0.75)', backdropFilter: 'blur(10px)' }}>
-            <div className="section-header" style={{ marginBottom: '1.25rem' }}>
-              <span className="section-title">
-                <Sliders size={16} style={{ verticalAlign: 'middle', marginRight: 6, color: 'var(--accent)' }} />
-                Weekly Debt & Standing Statistics
-              </span>
-              <span style={{ fontSize: '12px', fontWeight: '500', color: 'var(--text-3)' }}>Real-time Audit Ledger</span>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.8fr', gap: '1.5rem', alignItems: 'stretch' }}>
-              {/* Overall Standing Card */}
-              <div style={{ 
-                background: overallVarianceSoFar < 0 
-                  ? 'linear-gradient(135deg, rgba(239, 68, 68, 0.08) 0%, rgba(239, 68, 68, 0.03) 100%)' 
-                  : 'linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(16, 185, 129, 0.03) 100%)',
-                border: overallVarianceSoFar < 0 ? '1.5px solid rgba(239, 68, 68, 0.2)' : '1.5px solid rgba(16, 185, 129, 0.2)',
-                borderRadius: 'var(--r-md)',
-                padding: '1.25rem',
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'center'
-              }}>
-                <div style={{ fontSize: '10px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-3)', marginBottom: '8px' }}>
-                  Standing ({selectedDay} so far)
-                </div>
-                
-                {overallVarianceSoFar < 0 ? (
-                  <>
-                    <div style={{ fontSize: '20px', fontWeight: '800', color: 'var(--red)', letterSpacing: '-0.02em' }}>
-                      🚨 Time Debt
-                    </div>
-                    <div style={{ fontSize: '18px', fontWeight: '700', color: 'var(--text-1)', marginTop: '4px' }}>
-                      -{((Math.abs(overallVarianceSoFar)) / 100).toFixed(1)} hours
-                    </div>
-                    <div style={{ fontSize: '12px', color: 'var(--text-2)', marginTop: '8px', lineHeight: '1.4' }}>
-                      You are currently behind your budget up to {selectedDay} by <strong>${Math.abs(overallVarianceSoFar)}</strong>. Click "Pay Down" to reduce debt!
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div style={{ fontSize: '20px', fontWeight: '800', color: '#1A7A33', letterSpacing: '-0.02em' }}>
-                      🎉 Surplus Standing
-                    </div>
-                    <div style={{ fontSize: '18px', fontWeight: '700', color: 'var(--text-1)', marginTop: '4px' }}>
-                      +{((overallVarianceSoFar) / 100).toFixed(1)} hours
-                    </div>
-                    <div style={{ fontSize: '12px', color: 'var(--text-2)', marginTop: '8px', lineHeight: '1.4' }}>
-                      Splendid! You are ahead of your budget up to {selectedDay} by <strong>${overallVarianceSoFar}</strong>. Your focus is flourishing!
-                    </div>
-                  </>
-                )}
-              </div>
-
-              {/* Individual Project Standing List */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <div style={{ fontSize: '10px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-3)', marginBottom: '2px' }}>
-                  Project Balances (up to {selectedDay})
-                </div>
-                
-                {projects.map(p => {
-                  const pBudgetSoFar = daysUpToSelected.reduce((sum, d) => sum + (p.dailyAllocations?.[d] ?? 0), 0)
-                  const pSpentSoFar = daysUpToSelected.reduce((sum, d) => sum + (p.dailySpent?.[d] ?? 0), 0)
-                  const variance = pSpentSoFar - pBudgetSoFar
-                  const isDebt = variance < 0
-                  const isSurplus = variance > 0
-                  const cTheme = COLORS[p.color] || COLORS.blue
-                  const pct = pBudgetSoFar > 0 ? Math.min(100, Math.round((pSpentSoFar / pBudgetSoFar) * 100)) : 0
-
-                  return (
-                    <div key={p.id} style={{ 
-                      background: 'var(--surface-2)', 
-                      border: '1px solid var(--border)', 
-                      borderRadius: 'var(--r-sm)', 
-                      padding: '8px 12px',
-                      display: 'grid',
-                      gridTemplateColumns: '1.3fr 1.1fr 1fr',
-                      alignItems: 'center',
-                      gap: '8px'
-                    }}>
-                      {/* Project Title */}
-                      <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '600', fontSize: '12px', color: 'var(--text-1)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: cTheme.hex, display: 'inline-block' }} />
-                          {p.name}
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
-                          <div style={{ width: '45px', height: '3px', background: 'var(--border)', borderRadius: '1.5px', overflow: 'hidden' }}>
-                            <div style={{ width: `${pct}%`, height: '100%', backgroundColor: cTheme.hex, borderRadius: '1.5px' }} />
-                          </div>
-                          <span style={{ fontSize: '9px', color: 'var(--text-3)' }}>{pct}%</span>
-                        </div>
-                      </div>
-
-                      {/* Variance */}
-                      <div>
-                        {isDebt ? (
-                          <div style={{ display: 'inline-flex', flexDirection: 'column' }}>
-                            <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--red)' }}>
-                              🚨 −${Math.abs(variance)}
-                            </span>
-                            <span style={{ fontSize: '9px', color: 'var(--text-3)' }}>
-                              ({(Math.abs(variance) / 100).toFixed(1)}h debt)
-                            </span>
-                          </div>
-                        ) : isSurplus ? (
-                          <div style={{ display: 'inline-flex', flexDirection: 'column' }}>
-                            <span style={{ fontSize: '11px', fontWeight: '700', color: '#1A7A33' }}>
-                              ⚡ +${variance}
-                            </span>
-                            <span style={{ fontSize: '9px', color: 'var(--text-3)' }}>
-                              ({(variance / 100).toFixed(1)}h over)
-                            </span>
-                          </div>
-                        ) : (
-                          <div style={{ display: 'inline-flex', flexDirection: 'column' }}>
-                            <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--accent)' }}>
-                              ✓ Balanced
-                            </span>
-                            <span style={{ fontSize: '9px', color: 'var(--text-3)' }}>
-                              (0h deviation)
-                            </span>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Actions */}
-                      <div style={{ textAlign: 'right' }}>
-                        <button 
-                          onClick={() => payDownDebt(p.id)}
-                          style={{
-                            width: '100%',
-                            height: '26px',
-                            borderRadius: '980px',
-                            background: isDebt ? 'linear-gradient(135deg, var(--red) 0%, #E03E3E 100%)' : 'var(--surface)',
-                            border: isDebt ? 'none' : '1px solid var(--border-strong)',
-                            color: isDebt ? '#FFFFFF' : 'var(--text-1)',
-                            fontSize: '10px',
-                            fontWeight: '700',
-                            cursor: 'pointer',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            gap: '2px',
-                            boxShadow: isDebt ? '0 1px 4px rgba(239,68,68,0.15)' : 'none',
-                            transition: 'all 0.2s'
-                          }}
-                          onMouseEnter={e => {
-                            if (isDebt) {
-                              e.currentTarget.style.opacity = '0.9'
-                              e.currentTarget.style.transform = 'translateY(-0.5px)'
-                            } else {
-                              e.currentTarget.style.background = cTheme.bg
-                              e.currentTarget.style.borderColor = cTheme.hex
-                              e.currentTarget.style.color = cTheme.hex
-                            }
-                          }}
-                          onMouseLeave={e => {
-                            if (isDebt) {
-                              e.currentTarget.style.opacity = '1'
-                              e.currentTarget.style.transform = 'none'
-                            } else {
-                              e.currentTarget.style.background = 'var(--surface)'
-                              e.currentTarget.style.borderColor = 'var(--border-strong)'
-                              e.currentTarget.style.color = 'var(--text-1)'
-                            }
-                          }}
-                          title={isDebt ? 'Log 30m focus to pay down this project\'s time debt!' : 'Overpay focus (+30m) to boost this project beyond budget!'}
-                        >
-                          {isDebt ? '⚡ Pay Down' : '➕ Overpay'}
-                        </button>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          </div>
-
           {/* Focus Cards */}
           <div className="surface" style={{ padding: '1.5rem' }}>
           <div className="section-header">
@@ -2457,6 +2247,185 @@ function Dashboard({ state, setState }) {
           }
         </div>
       </div>
+
+          {/* Focus Debt & Statistics Ledger */}
+          <div className="surface" style={{ padding: '1.5rem', border: '1px solid var(--border)', background: 'rgba(255, 255, 255, 0.75)', backdropFilter: 'blur(10px)' }}>
+            <div className="section-header" style={{ marginBottom: '1.25rem' }}>
+              <span className="section-title">
+                <Sliders size={16} style={{ verticalAlign: 'middle', marginRight: 6, color: 'var(--accent)' }} />
+                Weekly Debt & Standing Statistics
+              </span>
+              <span style={{ fontSize: '12px', fontWeight: '500', color: 'var(--text-3)' }}>Real-time Audit Ledger</span>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.8fr', gap: '1.5rem', alignItems: 'stretch' }}>
+              {/* Overall Standing Card */}
+              <div style={{ 
+                background: overallVarianceSoFar < 0 
+                  ? 'linear-gradient(135deg, rgba(239, 68, 68, 0.08) 0%, rgba(239, 68, 68, 0.03) 100%)' 
+                  : 'linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(16, 185, 129, 0.03) 100%)',
+                border: overallVarianceSoFar < 0 ? '1.5px solid rgba(239, 68, 68, 0.2)' : '1.5px solid rgba(16, 185, 129, 0.2)',
+                borderRadius: 'var(--r-md)',
+                padding: '1.25rem',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center'
+              }}>
+                <div style={{ fontSize: '10px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-3)', marginBottom: '8px' }}>
+                  Standing ({selectedDay} so far)
+                </div>
+                
+                {overallVarianceSoFar < 0 ? (
+                  <>
+                    <div style={{ fontSize: '20px', fontWeight: '800', color: 'var(--red)', letterSpacing: '-0.02em' }}>
+                      🚨 Time Debt
+                    </div>
+                    <div style={{ fontSize: '18px', fontWeight: '700', color: 'var(--text-1)', marginTop: '4px' }}>
+                      -{((Math.abs(overallVarianceSoFar)) / 100).toFixed(1)} hours
+                    </div>
+                    <div style={{ fontSize: '12px', color: 'var(--text-2)', marginTop: '8px', lineHeight: '1.4' }}>
+                      You are currently behind your budget up to {selectedDay} by <strong>${Math.abs(overallVarianceSoFar)}</strong>. Click "Pay Down" to reduce debt!
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div style={{ fontSize: '20px', fontWeight: '800', color: '#1A7A33', letterSpacing: '-0.02em' }}>
+                      🎉 Surplus Standing
+                    </div>
+                    <div style={{ fontSize: '18px', fontWeight: '700', color: 'var(--text-1)', marginTop: '4px' }}>
+                      +{((overallVarianceSoFar) / 100).toFixed(1)} hours
+                    </div>
+                    <div style={{ fontSize: '12px', color: 'var(--text-2)', marginTop: '8px', lineHeight: '1.4' }}>
+                      Splendid! You are ahead of your budget up to {selectedDay} by <strong>${overallVarianceSoFar}</strong>. Your focus is flourishing!
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Individual Project Standing List */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={{ fontSize: '10px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-3)', marginBottom: '2px' }}>
+                  Project Balances (up to {selectedDay})
+                </div>
+                
+                {projects.map(p => {
+                  const pBudgetSoFar = daysUpToSelected.reduce((sum, d) => sum + (p.dailyAllocations?.[d] ?? 0), 0)
+                  const pSpentSoFar = daysUpToSelected.reduce((sum, d) => sum + (p.dailySpent?.[d] ?? 0), 0)
+                  const variance = pSpentSoFar - pBudgetSoFar
+                  const isDebt = variance < 0
+                  const isSurplus = variance > 0
+                  const cTheme = COLORS[p.color] || COLORS.blue
+                  const pct = pBudgetSoFar > 0 ? Math.min(100, Math.round((pSpentSoFar / pBudgetSoFar) * 100)) : 0
+
+                  return (
+                    <div key={p.id} style={{ 
+                      background: 'var(--surface-2)', 
+                      border: '1px solid var(--border)', 
+                      borderRadius: 'var(--r-sm)', 
+                      padding: '8px 12px',
+                      display: 'grid',
+                      gridTemplateColumns: '1.3fr 1.1fr 1fr',
+                      alignItems: 'center',
+                      gap: '8px'
+                    }}>
+                      {/* Project Title */}
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '600', fontSize: '12px', color: 'var(--text-1)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: cTheme.hex, display: 'inline-block' }} />
+                          {p.name}
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
+                          <div style={{ width: '45px', height: '3px', background: 'var(--border)', borderRadius: '1.5px', overflow: 'hidden' }}>
+                            <div style={{ width: `${pct}%`, height: '100%', backgroundColor: cTheme.hex, borderRadius: '1.5px' }} />
+                          </div>
+                          <span style={{ fontSize: '9px', color: 'var(--text-3)' }}>{pct}%</span>
+                        </div>
+                      </div>
+
+                      {/* Variance */}
+                      <div>
+                        {isDebt ? (
+                          <div style={{ display: 'inline-flex', flexDirection: 'column' }}>
+                            <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--red)' }}>
+                              🚨 −${Math.abs(variance)}
+                            </span>
+                            <span style={{ fontSize: '9px', color: 'var(--text-3)' }}>
+                              ({(Math.abs(variance) / 100).toFixed(1)}h debt)
+                            </span>
+                          </div>
+                        ) : isSurplus ? (
+                          <div style={{ display: 'inline-flex', flexDirection: 'column' }}>
+                            <span style={{ fontSize: '11px', fontWeight: '700', color: '#1A7A33' }}>
+                              ⚡ +${variance}
+                            </span>
+                            <span style={{ fontSize: '9px', color: 'var(--text-3)' }}>
+                              ({(variance / 100).toFixed(1)}h over)
+                            </span>
+                          </div>
+                        ) : (
+                          <div style={{ display: 'inline-flex', flexDirection: 'column' }}>
+                            <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--accent)' }}>
+                              ✓ Balanced
+                            </span>
+                            <span style={{ fontSize: '9px', color: 'var(--text-3)' }}>
+                              (0h deviation)
+                            </span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Actions */}
+                      <div style={{ textAlign: 'right' }}>
+                        <button 
+                          onClick={() => payDownDebt(p.id)}
+                          style={{
+                            width: '100%',
+                            height: '26px',
+                            borderRadius: '980px',
+                            background: isDebt ? 'linear-gradient(135deg, var(--red) 0%, #E03E3E 100%)' : 'var(--surface)',
+                            border: isDebt ? 'none' : '1px solid var(--border-strong)',
+                            color: isDebt ? '#FFFFFF' : 'var(--text-1)',
+                            fontSize: '10px',
+                            fontWeight: '700',
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '2px',
+                            boxShadow: isDebt ? '0 1px 4px rgba(239,68,68,0.15)' : 'none',
+                            transition: 'all 0.2s'
+                          }}
+                          onMouseEnter={e => {
+                            if (isDebt) {
+                              e.currentTarget.style.opacity = '0.9'
+                              e.currentTarget.style.transform = 'translateY(-0.5px)'
+                            } else {
+                              e.currentTarget.style.background = cTheme.bg
+                              e.currentTarget.style.borderColor = cTheme.hex
+                              e.currentTarget.style.color = cTheme.hex
+                            }
+                          }}
+                          onMouseLeave={e => {
+                            if (isDebt) {
+                              e.currentTarget.style.opacity = '1'
+                              e.currentTarget.style.transform = 'none'
+                            } else {
+                              e.currentTarget.style.background = 'var(--surface)'
+                              e.currentTarget.style.borderColor = 'var(--border-strong)'
+                              e.currentTarget.style.color = 'var(--text-1)'
+                            }
+                          }}
+                          title={isDebt ? 'Log 30m focus to pay down this project\'s time debt!' : 'Overpay focus (+30m) to boost this project beyond budget!'}
+                        >
+                          {isDebt ? '⚡ Pay Down' : '➕ Overpay'}
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
 
       {/* Unified Flowing Time City Landscape Breakout */}
       <FlowingTimeCity overdrafted={overdrafted} dayBudget={dayBudget} daySpent={daySpent} />
