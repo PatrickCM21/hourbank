@@ -129,10 +129,26 @@ function performWeeklyRollover(s) {
     lastResetDate: now.toISOString()
   }
 }
+function getTimerSeconds(t) {
+  if (!t) return 0
+  if (!t.running) return t.seconds ?? t.accumulatedSeconds ?? 0
+  const accumulated = t.accumulatedSeconds ?? t.seconds ?? 0
+  const startTime = t.startTime ?? Date.now()
+  return accumulated + Math.max(0, Math.floor((Date.now() - startTime) / 1000))
+}
+
 function migrateState(s) {
   if (!s) return s
   let migrated = false
   const updated = { ...s }
+
+  if (updated.timer && updated.timer.running) {
+    if (updated.timer.startTime === undefined) {
+      updated.timer.startTime = Date.now() - ((updated.timer.seconds ?? 0) * 1000)
+      updated.timer.accumulatedSeconds = 0
+      migrated = true
+    }
+  }
 
   if (!updated.wakeHours) {
     const w = updated.wakeH ?? 9
@@ -1912,17 +1928,39 @@ function Dashboard({ state, setState }) {
               </div>
             </div>
             <div style={{ fontSize: '24px', fontWeight: '800', fontFamily: 'monospace', color: 'var(--text-1)' }}>
-              {Math.floor(state.timer.seconds / 60)}:{(state.timer.seconds % 60) < 10 ? '0' : ''}{state.timer.seconds % 60}
+              {Math.floor(getTimerSeconds(state.timer) / 60)}:{(getTimerSeconds(state.timer) % 60) < 10 ? '0' : ''}{getTimerSeconds(state.timer) % 60}
             </div>
           </div>
 
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '4px' }}>
             <button
               className="btn btn-secondary btn-sm"
-              onClick={() => setState(s => ({
-                ...s,
-                timer: s.timer ? { ...s.timer, running: !s.timer.running } : null
-              }))}
+              onClick={() => setState(s => {
+                if (!s.timer) return s;
+                const wasRunning = s.timer.running;
+                if (wasRunning) {
+                  const currentSecs = getTimerSeconds(s.timer);
+                  return {
+                    ...s,
+                    timer: {
+                      ...s.timer,
+                      running: false,
+                      seconds: currentSecs,
+                      accumulatedSeconds: currentSecs,
+                      startTime: null
+                    }
+                  };
+                } else {
+                  return {
+                    ...s,
+                    timer: {
+                      ...s.timer,
+                      running: true,
+                      startTime: Date.now()
+                    }
+                  };
+                }
+              })}
               style={{ flex: 1, minWidth: '80px' }}
             >
               {state.timer.running ? '⏸️ Pause' : '▶️ Resume'}
@@ -1933,7 +1971,7 @@ function Dashboard({ state, setState }) {
               onClick={() => {
                 const currentTimer = state.timer;
                 if (!currentTimer) return;
-                logStopwatchTime(currentTimer.projectId, currentTimer.seconds);
+                logStopwatchTime(currentTimer.projectId, getTimerSeconds(currentTimer));
               }}
               style={{ flex: 2, background: 'var(--green)', minWidth: '130px' }}
             >
@@ -2325,14 +2363,16 @@ function Dashboard({ state, setState }) {
                           onClick={() => {
                             const isCurrentStopwatch = state.timer && state.timer.projectId === p.id;
                             if (isCurrentStopwatch) {
-                              logStopwatchTime(p.id, state.timer.seconds);
+                              logStopwatchTime(p.id, getTimerSeconds(state.timer));
                             } else {
                               setState(s => ({
                                 ...s,
                                 timer: {
                                   projectId: p.id,
                                   seconds: 0,
-                                  running: true
+                                  running: true,
+                                  accumulatedSeconds: 0,
+                                  startTime: Date.now()
                                 }
                               }));
                             }
@@ -2360,7 +2400,7 @@ function Dashboard({ state, setState }) {
                           onMouseLeave={e => { if (state.timer === null || state.timer.projectId === p.id) e.currentTarget.style.opacity = 1 }}
                         >
                           {state.timer && state.timer.projectId === p.id
-                            ? `⏹️ Stop & Invest ($${Math.round((state.timer.seconds / 1800) * 50)}) [${Math.floor(state.timer.seconds / 60)}:${(state.timer.seconds % 60) < 10 ? '0' : ''}${state.timer.seconds % 60}]`
+                            ? `⏹️ Stop & Invest ($${Math.round((getTimerSeconds(state.timer) / 1800) * 50)}) [${Math.floor(getTimerSeconds(state.timer) / 60)}:${(getTimerSeconds(state.timer) % 60) < 10 ? '0' : ''}${getTimerSeconds(state.timer) % 60}]`
                             : 'Start Focus'
                           }
                         </button>
@@ -2616,11 +2656,12 @@ export default function App() {
     const interval = setInterval(() => {
       setState(s => {
         if (!s.timer || !s.timer.running) return s;
+        const currentSeconds = getTimerSeconds(s.timer);
         return {
           ...s,
           timer: {
             ...s.timer,
-            seconds: s.timer.seconds + 1
+            seconds: currentSeconds
           }
         };
       });
