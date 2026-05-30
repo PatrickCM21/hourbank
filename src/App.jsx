@@ -1612,6 +1612,9 @@ function Dashboard({ state, setState }) {
     return acc
   }, {})
 
+  const activeProj = state.timer ? projects.find(p => p.id === state.timer.projectId) : null
+  const activeTheme = activeProj ? (COLORS[activeProj.color] || COLORS.blue) : COLORS.blue
+
   function logStopwatchTime(projId, elapsedSeconds) {
     setState(s => {
       const proj = s.projects.find(p => p.id === projId)
@@ -1908,23 +1911,24 @@ function Dashboard({ state, setState }) {
           </div>
       {state.timer && (
         <div style={{
-          background: 'linear-gradient(135deg, rgba(0, 113, 227, 0.05) 0%, rgba(48, 209, 88, 0.05) 100%)',
-          border: '1.5px solid var(--border-strong)',
+          background: `linear-gradient(135deg, ${activeTheme.bg} 0%, rgba(255, 255, 255, 0.65) 100%)`,
+          border: `1.5px solid ${activeTheme.border}`,
           borderRadius: 'var(--r)',
           padding: '1.25rem',
           marginBottom: '1.5rem',
           display: 'flex',
           flexDirection: 'column',
           gap: '12px',
-          boxShadow: 'var(--shadow-xs)'
+          boxShadow: 'var(--shadow-xs)',
+          backdropFilter: 'blur(10px)'
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
             <div>
-              <div style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', color: 'var(--accent)', letterSpacing: '0.05em' }}>
+              <div style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', color: activeTheme.hex, letterSpacing: '0.05em' }}>
                 ⏱️ Active Focus Stopwatch
               </div>
               <div style={{ fontSize: '16px', fontWeight: '700', color: 'var(--text-1)', marginTop: '2px' }}>
-                {projects.find(p => p.id === state.timer.projectId)?.name || 'Focus Project'}
+                {activeProj?.name || 'Focus Project'}
               </div>
             </div>
             <div style={{ fontSize: '24px', fontWeight: '800', fontFamily: 'monospace', color: 'var(--text-1)' }}>
