@@ -1799,8 +1799,24 @@ function Dashboard({ state, setState }) {
   const daySpent = state.dailySpent?.[selectedDay] ?? 0
   const dayRemaining = Math.max(0, dayBudget - daySpent)
   const todayIdx = DAYS.indexOf(todayKey())
-  const pastUnspentCash = DAYS.slice(0, todayIdx).reduce((sum, d) => sum + Math.max(0, (dailyCash[d] ?? 0) - (state.dailySpent?.[d] ?? 0)), 0)
-  const pastUnspent = pastUnspentCash / 50
+  // Find focus project with the least investment (lowest weekly progress % spentCash / allocatedCash)
+  const activeBudgetedProjects = projects.filter(p => p.allocatedCash > 0)
+  let leastInvestedProj = null
+  let leastInvestedPct = 100
+  activeBudgetedProjects.forEach(p => {
+    const pct = Math.round((p.spentCash / p.allocatedCash) * 100)
+    if (pct < leastInvestedPct) {
+      leastInvestedPct = pct
+      leastInvestedProj = p
+    } else if (pct === leastInvestedPct && leastInvestedProj !== null) {
+      const currentUnworked = leastInvestedProj.allocatedCash - leastInvestedProj.spentCash
+      const thisUnworked = p.allocatedCash - p.spentCash
+      if (thisUnworked > currentUnworked) {
+        leastInvestedProj = p
+      }
+    }
+  })
+  const leastInvestedTheme = leastInvestedProj ? (COLORS[leastInvestedProj.color] || COLORS.blue) : null
   const overdrafted = ledger.some(e => e.desc?.includes('OVERDRAFT'))
   const todayKeyName = todayKey()
   const todayBudget = dailyCash[todayKeyName] ?? 0
@@ -1947,9 +1963,28 @@ function Dashboard({ state, setState }) {
             {mood === 'ecstatic' ? '🤩 Ecstatic' : mood === 'happy' ? '😌 Happy' : mood === 'curious' ? '🤔 Curious' : '😔 Sad'}
           </div>
         </div>
-        <div className="stat-card">
-          <div className="stat-label">Unspent Past</div>
-          <div className={`stat-val ${pastUnspent === 0 ? 'green' : 'red'}`}>{pastUnspent} cards</div>
+        <div className="stat-card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+          <div className="stat-label">Least Invested</div>
+          <div 
+            className="stat-val" 
+            style={{ 
+              fontSize: '1rem', 
+              fontWeight: '700', 
+              color: leastInvestedProj ? leastInvestedTheme.hex : 'var(--green)',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              marginTop: '2px'
+            }}
+            title={leastInvestedProj ? leastInvestedProj.name : 'All healthy'}
+          >
+            {leastInvestedProj ? leastInvestedProj.name : 'All Healthy 🎉'}
+          </div>
+          {leastInvestedProj && (
+            <div style={{ fontSize: '10px', color: 'var(--text-3)', fontWeight: '600', marginTop: '2px' }}>
+              {leastInvestedPct}% weekly progress
+            </div>
+          )}
         </div>
       </div>
 
