@@ -1999,7 +1999,7 @@ function Dashboard({ state, setState }) {
 
           {projects.length === 0
             ? <div className="deck-empty">No projects active. Open Settings to add some!</div>
-            : <div className="cards-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '32px 16px', paddingTop: '28px', overflow: 'visible' }}>
+            : <div className="cards-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '16px' }}>
                 {projects.map(p => {
                   const theme = COLORS[p.color] ?? COLORS.blue
                   const dailyAlloc = p.dailyAllocations?.[selectedDay] ?? 0
@@ -2188,381 +2188,256 @@ function Dashboard({ state, setState }) {
                   }
 
                   const isDropdownOpen = openDropdownProjId === p.id;
-                  const remainingNotes = Math.ceil(dailyRem / 50);
-                  const stackCount = Math.max(1, remainingNotes);
 
                   return (
                     <div
                       key={p.id}
+                      className="focus-card"
                       style={{
+                        backgroundColor: isDailyCompleted ? 'rgba(52, 199, 89, 0.06)' : theme.bg,
+                        borderColor: isDailyCompleted ? 'rgba(52, 199, 89, 0.3)' : theme.border,
+                        borderWidth: '1.5px',
+                        borderStyle: 'solid',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'space-between',
+                        gap: '12px',
+                        padding: '18px',
+                        minHeight: '180px',
+                        transition: 'all 0.25s ease',
                         position: 'relative',
-                        transition: 'all 0.3s ease',
-                        marginTop: `${(stackCount - 1) * 8}px`,
-                        marginBottom: '8px',
+                        overflow: 'visible',
+                        opacity: isDailyCompleted ? (isDropdownOpen ? 1 : 0.6) : 1,
                         zIndex: isDropdownOpen ? 50 : 1
                       }}
                     >
-                      {/* Cascading Tactile Cards Stack underneath */}
-                      {Array.from({ length: stackCount - 1 }).map((_, idx) => {
-                        const reversedIdx = stackCount - 1 - idx;
-                        return (
-                          <div
-                            key={`shadow-${idx}`}
+                      <div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%' }}>
+                          <span
+                            className="card-project-tag"
                             style={{
-                              position: 'absolute',
-                              top: 0,
-                              left: 0,
-                              right: 0,
-                              bottom: 0,
-                              backgroundColor: theme.bg,
-                              borderColor: theme.border,
-                              borderWidth: '1.5px',
-                              borderStyle: 'solid',
-                              borderRadius: '12px',
-                              transform: `scale(${1 - reversedIdx * 0.03}) translateY(${-reversedIdx * 8}px)`,
-                              zIndex: 9 - idx,
-                              transition: 'all 0.3s ease',
-                              pointerEvents: 'none',
-                              boxShadow: '0 2px 6px rgba(0, 0, 0, 0.02)'
+                              backgroundColor: theme.hex,
+                              color: '#FFFFFF',
+                              fontSize: '10px',
+                              fontWeight: '700',
+                              padding: '3px 9px'
                             }}
-                          />
-                        );
-                      })}
-
-                      {/* Top Interactive Active Card */}
-                      <div
-                        className="focus-card"
-                        style={{
-                          backgroundColor: isDailyCompleted ? 'rgba(52, 199, 89, 0.06)' : theme.bg,
-                          borderColor: isDailyCompleted ? 'rgba(52, 199, 89, 0.3)' : theme.border,
-                          borderWidth: '1.5px',
-                          borderStyle: 'solid',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          justifyContent: 'space-between',
-                          gap: '12px',
-                          padding: '18px',
-                          minHeight: '180px',
-                          transition: 'all 0.25s ease',
-                          position: 'relative',
-                          overflow: 'visible',
-                          opacity: isDailyCompleted ? (isDropdownOpen ? 1 : 0.6) : 1,
-                          zIndex: 10,
-                          borderRadius: '12px',
-                          boxShadow: (state.timer && state.timer.projectId === p.id) 
-                            ? `0 0 16px ${theme.hex}22, 0 4px 12px rgba(0, 0, 0, 0.05)`
-                            : '0 4px 12px rgba(0, 0, 0, 0.04)'
-                        }}
-                      >
-                        <div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%' }}>
-                            <span
-                              className="card-project-tag"
-                              style={{
-                                backgroundColor: theme.hex,
-                                color: '#FFFFFF',
-                                fontSize: '10px',
-                                fontWeight: '700',
-                                padding: '3px 9px'
+                          >
+                            Rank {p.priority}
+                          </span>
+                          
+                          {/* Top Right Allocation Dropdown */}
+                          <div style={{ position: 'relative' }}>
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setOpenDropdownProjId(openDropdownProjId === p.id ? null : p.id)
                               }}
-                            >
-                              Rank {p.priority}
-                            </span>
-                            
-                            {/* Top Right Allocation Dropdown */}
-                            <div style={{ position: 'relative' }}>
-                              <button 
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  setOpenDropdownProjId(openDropdownProjId === p.id ? null : p.id)
-                                }}
-                                style={{
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  gap: '4px',
-                                  fontSize: '11px',
-                                  fontWeight: '700',
-                                  color: theme.hex,
-                                  background: '#FFFFFF',
-                                  border: `1.5px solid ${theme.border}`,
-                                  borderRadius: '6px',
-                                  padding: '4px 8px',
-                                  cursor: 'pointer',
-                                  transition: 'all 0.2s',
-                                  outline: 'none'
-                                }}
-                                title="Set today's budget"
-                              >
-                                <Sliders size={10} /> {(dailyAlloc / 100).toFixed(1)}h
-                              </button>
-                              
-                              {openDropdownProjId === p.id && (
-                                <div 
-                                  style={{
-                                    position: 'absolute',
-                                    top: '28px',
-                                    right: '0',
-                                    background: 'var(--surface)',
-                                    border: '1px solid var(--border-strong)',
-                                    borderRadius: 'var(--r-sm)',
-                                    boxShadow: 'var(--shadow-md)',
-                                    padding: '6px',
-                                    zIndex: 100,
-                                    minWidth: '130px',
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    gap: '2px'
-                                  }}
-                                  onClick={(e) => e.stopPropagation()}
-                                >
-                                  <div style={{ fontSize: '9px', fontWeight: '700', color: 'var(--text-3)', padding: '4px 8px', textTransform: 'uppercase', borderBottom: '1px solid var(--border)', marginBottom: '4px' }}>Today's Budget</div>
-                                  {[0, 50, 100, 150, 200, 250, 300, 400, 500].map(amt => {
-                                    const hours = amt / 100
-                                    const label = amt === 0 ? '0h (Rest)' : `${hours}h ($${amt})`
-                                    return (
-                                      <button
-                                        key={amt}
-                                        onClick={() => {
-                                          setOpenDropdownProjId(null)
-                                          handleAdjust(amt - dailyAlloc)
-                                        }}
-                                        style={{
-                                          textAlign: 'left',
-                                          border: 'none',
-                                          background: dailyAlloc === amt ? 'var(--accent-soft)' : 'none',
-                                          color: dailyAlloc === amt ? 'var(--accent)' : 'var(--text-1)',
-                                          padding: '5px 8px',
-                                          fontSize: '12px',
-                                          borderRadius: '4px',
-                                          cursor: 'pointer',
-                                          fontWeight: dailyAlloc === amt ? '600' : '400',
-                                          transition: 'all 0.15s',
-                                          width: '100%'
-                                        }}
-                                        onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--surface-2)'}
-                                        onMouseLeave={e => e.currentTarget.style.backgroundColor = dailyAlloc === amt ? 'var(--accent-soft)' : 'transparent'}
-                                      >
-                                        {label}
-                                      </button>
-                                    )
-                                  })}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                          <h3 className="card-name" style={{ marginTop: '10px', fontSize: '16px', fontWeight: '700', color: 'var(--text-1)' }}>
-                            {p.name}
-                          </h3>
-                        </div>
-                        
-                        <div>
-                          {/* Tactile Cash Note Stack Indicator Inside Card */}
-                          {remainingNotes === 0 ? (
-                            <div style={{ 
-                              width: '100%', 
-                              height: '54px', 
-                              borderRadius: '8px', 
-                              border: '1.5px dashed rgba(52, 199, 89, 0.4)', 
-                              display: 'flex', 
-                              alignItems: 'center', 
-                              justifyContent: 'center', 
-                              color: 'var(--green)',
-                              fontSize: '12px',
-                              fontWeight: '600',
-                              backgroundColor: 'rgba(52, 199, 89, 0.02)',
-                              marginTop: '8px',
-                              marginBottom: '8px'
-                            }}>
-                              🎉 All Notes Fully Invested!
-                            </div>
-                          ) : (
-                            (() => {
-                              const isCurrentActive = state.timer && state.timer.projectId === p.id;
-                              
-                              if (isCurrentActive) {
-                                return (
-                                  <div style={{
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    gap: '4px',
-                                    background: `${theme.bg}`,
-                                    border: `1.5px solid ${theme.border}`,
-                                    borderRadius: '8px',
-                                    padding: '8px 12px',
-                                    marginTop: '8px',
-                                    marginBottom: '8px',
-                                    boxShadow: `inset 0 1px 2px rgba(0, 0, 0, 0.02)`
-                                  }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                      <span style={{ fontSize: '11px', fontWeight: '700', color: theme.hex }}>
-                                        Active Note
-                                      </span>
-                                      <span style={{ 
-                                        fontSize: '13px', 
-                                        fontWeight: '800', 
-                                        fontFamily: 'monospace',
-                                        color: 'var(--red)',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '4px'
-                                      }}>
-                                        {(() => {
-                                          const elapsed = getTimerSeconds(state.timer);
-                                          const remaining = Math.max(0, 1800 - elapsed);
-                                          const remMin = Math.floor(remaining / 60);
-                                          const remSec = remaining % 60;
-                                          return `⏱️ ${remMin}:${remSec < 10 ? '0' : ''}${remSec}`;
-                                        })()}
-                                      </span>
-                                    </div>
-                                    <div style={{ fontSize: '10px', color: 'var(--text-3)', fontWeight: '500' }}>
-                                      Consuming note to invest $50...
-                                    </div>
-                                  </div>
-                                );
-                              } else {
-                                return (
-                                  <div style={{
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    gap: '4px',
-                                    background: 'var(--surface-2)',
-                                    border: '1.5px solid var(--border)',
-                                    borderRadius: '8px',
-                                    padding: '8px 12px',
-                                    marginTop: '8px',
-                                    marginBottom: '8px'
-                                  }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                      <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-1)' }}>
-                                        {remainingNotes} {remainingNotes === 1 ? 'Note' : 'Notes'} Left
-                                      </span>
-                                      <span style={{ fontSize: '12px', fontWeight: '800', color: theme.hex }}>
-                                        ${remainingNotes * 50} total
-                                      </span>
-                                    </div>
-                                    <div style={{ fontSize: '10px', color: 'var(--text-3)', fontWeight: '500' }}>
-                                      Value: $50 each (30 minutes)
-                                    </div>
-                                  </div>
-                                );
-                              }
-                            })()
-                          )}
-                        </div>
-
-                        {/* Dynamic Stopwatch & Quick log Group */}
-                        <div style={{ display: 'flex', gap: '8px', zIndex: 1, marginTop: '8px' }}>
-                          {!(state.timer && state.timer.projectId === p.id) && (
-                            <button
-                              onClick={() => logStopwatchTime(p.id, -1800)} // Instantly remove 30 minutes focus (-1800 seconds)
-                              disabled={state.timer !== null}
                               style={{
-                                width: '50px',
-                                height: '38px',
-                                background: 'rgba(255, 255, 255, 0.7)',
-                                border: `1.5px solid ${theme.border}`,
-                                color: theme.hex,
-                                borderRadius: '980px',
-                                fontSize: '12px',
-                                fontWeight: '700',
-                                cursor: state.timer !== null ? 'not-allowed' : 'pointer',
                                 display: 'flex',
                                 alignItems: 'center',
-                                justifyContent: 'center',
+                                gap: '4px',
+                                fontSize: '11px',
+                                fontWeight: '700',
+                                color: theme.hex,
+                                background: '#FFFFFF',
+                                border: `1.5px solid ${theme.border}`,
+                                borderRadius: '6px',
+                                padding: '4px 8px',
+                                cursor: 'pointer',
                                 transition: 'all 0.2s',
-                                opacity: state.timer !== null ? 0.5 : 1
+                                outline: 'none'
                               }}
-                              onMouseEnter={e => { if (state.timer === null) e.currentTarget.style.background = '#FFFFFF' }}
-                              onMouseLeave={e => { if (state.timer === null) e.currentTarget.style.background = 'rgba(255, 255, 255, 0.7)' }}
-                              title="Instantly remove 30 minutes focus"
+                              title="Set today's budget"
                             >
-                              -30
+                              <Sliders size={10} /> {(dailyAlloc / 100).toFixed(1)}h
                             </button>
-                          )}
-
-                          <button
-                            onClick={() => {
-                              const isCurrentStopwatch = state.timer && state.timer.projectId === p.id;
-                              if (isCurrentStopwatch) {
-                                logStopwatchTime(p.id, getTimerSeconds(state.timer));
-                              } else {
-                                setState(s => ({
-                                  ...s,
-                                  timer: {
-                                    projectId: p.id,
-                                    seconds: 0,
-                                    running: true,
-                                    accumulatedSeconds: 0,
-                                    startTime: Date.now()
-                                  }
-                                }));
-                              }
-                            }}
-                            disabled={state.timer !== null && state.timer.projectId !== p.id}
+                            
+                            {openDropdownProjId === p.id && (
+                              <div 
+                                style={{
+                                  position: 'absolute',
+                                  top: '28px',
+                                  right: '0',
+                                  background: 'var(--surface)',
+                                  border: '1px solid var(--border-strong)',
+                                  borderRadius: 'var(--r-sm)',
+                                  boxShadow: 'var(--shadow-md)',
+                                  padding: '6px',
+                                  zIndex: 100,
+                                  minWidth: '130px',
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  gap: '2px'
+                                }}
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <div style={{ fontSize: '9px', fontWeight: '700', color: 'var(--text-3)', padding: '4px 8px', textTransform: 'uppercase', borderBottom: '1px solid var(--border)', marginBottom: '4px' }}>Today's Budget</div>
+                                {[0, 50, 100, 150, 200, 250, 300, 400, 500].map(amt => {
+                                  const hours = amt / 100
+                                  const label = amt === 0 ? '0h (Rest)' : `${hours}h ($${amt})`
+                                  return (
+                                    <button
+                                      key={amt}
+                                      onClick={() => {
+                                        setOpenDropdownProjId(null)
+                                        handleAdjust(amt - dailyAlloc)
+                                      }}
+                                      style={{
+                                        textAlign: 'left',
+                                        border: 'none',
+                                        background: dailyAlloc === amt ? 'var(--accent-soft)' : 'none',
+                                        color: dailyAlloc === amt ? 'var(--accent)' : 'var(--text-1)',
+                                        padding: '5px 8px',
+                                        fontSize: '12px',
+                                        borderRadius: '4px',
+                                        cursor: 'pointer',
+                                        fontWeight: dailyAlloc === amt ? '600' : '400',
+                                        transition: 'all 0.15s',
+                                        width: '100%'
+                                      }}
+                                      onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--surface-2)'}
+                                      onMouseLeave={e => e.currentTarget.style.backgroundColor = dailyAlloc === amt ? 'var(--accent-soft)' : 'transparent'}
+                                    >
+                                      {label}
+                                    </button>
+                                  )
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <h3 className="card-name" style={{ marginTop: '10px', fontSize: '16px', fontWeight: '700', color: 'var(--text-1)' }}>
+                          {p.name}
+                        </h3>
+                      </div>
+                      
+                      <div>
+                        {/* Custom Progress Bar */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', fontWeight: '600', color: 'var(--text-2)' }}>
+                          <span>Today remaining:</span>
+                          <span style={{ color: dailyRem === 0 ? 'var(--green)' : 'var(--text-1)', fontWeight: '700' }}>
+                            {dailyRem === 0 ? '✓ Completed' : `$${dailyRem} left`}
+                          </span>
+                        </div>
+                        
+                        <div className="proj-progress-wrap" style={{ margin: '8px 0 6px' }}>
+                          <div
+                            className="proj-progress-fill"
                             style={{
-                              flex: 1,
+                              width: `${Math.min(100, dailyPct)}%`,
+                              backgroundColor: theme.hex
+                            }}
+                          />
+                        </div>
+                        
+                      </div>
+
+                      {/* Dynamic Stopwatch & Quick log Group */}
+                      <div style={{ display: 'flex', gap: '8px', zIndex: 1, marginTop: '8px' }}>
+                        {!(state.timer && state.timer.projectId === p.id) && (
+                          <button
+                            onClick={() => logStopwatchTime(p.id, -1800)} // Instantly remove 30 minutes focus (-1800 seconds)
+                            disabled={state.timer !== null}
+                            style={{
+                              width: '50px',
                               height: '38px',
-                              background: (state.timer && state.timer.projectId === p.id) ? 'var(--red)' : theme.hex,
-                              color: '#FFFFFF',
-                              border: 'none',
+                              background: 'rgba(255, 255, 255, 0.7)',
+                              border: `1.5px solid ${theme.border}`,
+                              color: theme.hex,
                               borderRadius: '980px',
                               fontSize: '12px',
                               fontWeight: '700',
-                              cursor: (state.timer !== null && state.timer.projectId !== p.id) ? 'not-allowed' : 'pointer',
+                              cursor: state.timer !== null ? 'not-allowed' : 'pointer',
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center',
-                              gap: '6px',
-                              boxShadow: (state.timer && state.timer.projectId === p.id) ? '0 2px 8px rgba(255, 69, 58, 0.25)' : `0 2px 6px ${theme.border}`,
                               transition: 'all 0.2s',
-                              opacity: (state.timer !== null && state.timer.projectId !== p.id) ? 0.5 : 1
+                              opacity: state.timer !== null ? 0.5 : 1
                             }}
-                            onMouseEnter={e => { if (state.timer === null || state.timer.projectId === p.id) e.currentTarget.style.opacity = 0.9 }}
-                            onMouseLeave={e => { if (state.timer === null || state.timer.projectId === p.id) e.currentTarget.style.opacity = 1 }}
+                            onMouseEnter={e => { if (state.timer === null) e.currentTarget.style.background = '#FFFFFF' }}
+                            onMouseLeave={e => { if (state.timer === null) e.currentTarget.style.background = 'rgba(255, 255, 255, 0.7)' }}
+                            title="Instantly remove 30 minutes focus"
                           >
-                            {state.timer && state.timer.projectId === p.id
-                              ? (() => {
-                                  const elapsed = getTimerSeconds(state.timer);
-                                  const remaining = Math.max(0, 1800 - elapsed);
-                                  const remMin = Math.floor(remaining / 60);
-                                  const remSec = remaining % 60;
-                                  return `⏹️ Stop (${remMin}:${remSec < 10 ? '0' : ''}${remSec})`;
-                                })()
-                              : 'Start Focus'
-                            }
+                            -30
                           </button>
-                          
-                          {!(state.timer && state.timer.projectId === p.id) && (
-                            <button
-                              onClick={() => logStopwatchTime(p.id, 1800)} // Instantly log 30 minutes (1800 seconds)
-                              disabled={state.timer !== null}
-                              style={{
-                                width: '50px',
-                                height: '38px',
-                                background: 'rgba(255, 255, 255, 0.7)',
-                                border: `1.5px solid ${theme.border}`,
-                                color: theme.hex,
-                                borderRadius: '980px',
-                                fontSize: '12px',
-                                fontWeight: '700',
-                                cursor: state.timer !== null ? 'not-allowed' : 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                transition: 'all 0.2s',
-                                opacity: state.timer !== null ? 0.5 : 1
-                              }}
-                              onMouseEnter={e => { if (state.timer === null) e.currentTarget.style.background = '#FFFFFF' }}
-                              onMouseLeave={e => { if (state.timer === null) e.currentTarget.style.background = 'rgba(255, 255, 255, 0.7)' }}
-                              title="Instantly log 30 minutes focus"
-                            >
-                              30
-                            </button>
-                          )}
-                        </div>
+                        )}
 
+                        <button
+                          onClick={() => {
+                            const isCurrentStopwatch = state.timer && state.timer.projectId === p.id;
+                            if (isCurrentStopwatch) {
+                              logStopwatchTime(p.id, getTimerSeconds(state.timer));
+                            } else {
+                              setState(s => ({
+                                ...s,
+                                timer: {
+                                  projectId: p.id,
+                                  seconds: 0,
+                                  running: true,
+                                  accumulatedSeconds: 0,
+                                  startTime: Date.now()
+                                }
+                              }));
+                            }
+                          }}
+                          disabled={state.timer !== null && state.timer.projectId !== p.id}
+                          style={{
+                            flex: 1,
+                            height: '38px',
+                            background: (state.timer && state.timer.projectId === p.id) ? 'var(--red)' : theme.hex,
+                            color: '#FFFFFF',
+                            border: 'none',
+                            borderRadius: '980px',
+                            fontSize: '12px',
+                            fontWeight: '700',
+                            cursor: (state.timer !== null && state.timer.projectId !== p.id) ? 'not-allowed' : 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '6px',
+                            boxShadow: (state.timer && state.timer.projectId === p.id) ? '0 2px 8px rgba(255, 69, 58, 0.25)' : `0 2px 6px ${theme.border}`,
+                            transition: 'all 0.2s',
+                            opacity: (state.timer !== null && state.timer.projectId !== p.id) ? 0.5 : 1
+                          }}
+                          onMouseEnter={e => { if (state.timer === null || state.timer.projectId === p.id) e.currentTarget.style.opacity = 0.9 }}
+                          onMouseLeave={e => { if (state.timer === null || state.timer.projectId === p.id) e.currentTarget.style.opacity = 1 }}
+                        >
+                          {state.timer && state.timer.projectId === p.id
+                            ? `⏹️ Stop & Invest ($${Math.round((getTimerSeconds(state.timer) / 1800) * 50)}) [${Math.floor(getTimerSeconds(state.timer) / 60)}:${(getTimerSeconds(state.timer) % 60) < 10 ? '0' : ''}${getTimerSeconds(state.timer) % 60}]`
+                            : 'Start Focus'
+                          }
+                        </button>
+                        
+                        {!(state.timer && state.timer.projectId === p.id) && (
+                          <button
+                            onClick={() => logStopwatchTime(p.id, 1800)} // Instantly log 30 minutes (1800 seconds)
+                            disabled={state.timer !== null}
+                            style={{
+                              width: '50px',
+                              height: '38px',
+                              background: 'rgba(255, 255, 255, 0.7)',
+                              border: `1.5px solid ${theme.border}`,
+                              color: theme.hex,
+                              borderRadius: '980px',
+                              fontSize: '12px',
+                              fontWeight: '700',
+                              cursor: state.timer !== null ? 'not-allowed' : 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              transition: 'all 0.2s',
+                              opacity: state.timer !== null ? 0.5 : 1
+                            }}
+                            onMouseEnter={e => { if (state.timer === null) e.currentTarget.style.background = '#FFFFFF' }}
+                            onMouseLeave={e => { if (state.timer === null) e.currentTarget.style.background = 'rgba(255, 255, 255, 0.7)' }}
+                            title="Instantly log 30 minutes focus"
+                          >
+                            30
+                          </button>
+                        )}
                       </div>
+
                     </div>
                   )
                 })}
@@ -2786,77 +2661,6 @@ export default function App() {
       setState(s => {
         if (!s.timer || !s.timer.running) return s;
         const currentSeconds = getTimerSeconds(s.timer);
-        
-        // Auto-progress rollover check: when countdown reaches 30 minutes (1800 seconds)
-        if (currentSeconds >= 1800) {
-          const projId = s.timer.projectId;
-          const proj = s.projects.find(p => p.id === projId);
-          if (!proj) {
-            return { ...s, timer: null };
-          }
-          
-          const day = s.selectedDay;
-          const currentSpent = proj.dailySpent?.[day] ?? 0;
-          const dailyAlloc = proj.dailyAllocations?.[day] ?? 0;
-          
-          // Log exactly $50 cash (30 minutes)
-          const cashDelta = 50;
-          const newSpent = currentSpent + cashDelta;
-          
-          const nextProjects = s.projects.map(p => {
-            if (p.id === projId) {
-              const nextDailySpentMap = {
-                ...p.dailySpent,
-                [day]: newSpent
-              };
-              const nextWeeklySpent = Object.values(nextDailySpentMap).reduce((a, b) => a + b, 0);
-              return {
-                ...p,
-                dailySpent: nextDailySpentMap,
-                spentCash: nextWeeklySpent
-              };
-            }
-            return p;
-          });
-          
-          const nextDailySpent = {
-            ...s.dailySpent,
-            [day]: (s.dailySpent[day] ?? 0) + cashDelta
-          };
-          
-          const desc = `Finished 30m active note on "${proj.name}"! +$50 invested!`;
-          const entry = { ts: new Date().toLocaleTimeString(), desc, amt: -cashDelta, type: 'neg' };
-          const nextLedger = [entry, ...s.ledger];
-          
-          // Check if there is still remaining budget for today to start the next note
-          const remainingAlloc = Math.max(0, dailyAlloc - newSpent);
-          if (remainingAlloc >= 50) {
-            // Auto-progress: instantly start the next note!
-            return {
-              ...s,
-              projects: nextProjects,
-              dailySpent: nextDailySpent,
-              ledger: nextLedger,
-              timer: {
-                projectId: projId,
-                seconds: 0,
-                accumulatedSeconds: 0,
-                startTime: Date.now(),
-                running: true
-              }
-            };
-          } else {
-            // No budget left, stop the focus session
-            return {
-              ...s,
-              projects: nextProjects,
-              dailySpent: nextDailySpent,
-              ledger: nextLedger,
-              timer: null
-            };
-          }
-        }
-
         return {
           ...s,
           timer: {
