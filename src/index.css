@@ -326,6 +326,7 @@ input[type="range"]::-webkit-slider-runnable-track {
 .focus-card:hover:not(.spent) {
   background: var(--surface); border-color: var(--accent-border);
   box-shadow: var(--shadow-md); transform: translateY(-2px);
+  opacity: 1 !important;
 }
 .focus-card.spent {
   opacity: 0.45; cursor: default;

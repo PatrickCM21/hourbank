@@ -2207,7 +2207,7 @@ function Dashboard({ state, setState }) {
                         transition: 'all 0.25s ease',
                         position: 'relative',
                         overflow: 'visible',
-                        opacity: isDailyCompleted ? 0.6 : 1,
+                        opacity: isDailyCompleted ? (isDropdownOpen ? 1 : 0.6) : 1,
                         zIndex: isDropdownOpen ? 50 : 1
                       }}
                     >
