@@ -2313,24 +2313,97 @@ function Dashboard({ state, setState }) {
                       </div>
                       
                       <div>
-                        {/* Custom Progress Bar */}
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', fontWeight: '600', color: 'var(--text-2)' }}>
-                          <span>Today remaining:</span>
-                          <span style={{ color: dailyRem === 0 ? 'var(--green)' : 'var(--text-1)', fontWeight: '700' }}>
-                            {dailyRem === 0 ? '✓ Completed' : `$${dailyRem} left`}
-                          </span>
+                        {/* Cascading Tactile Cash Note Stack */}
+                        <div style={{ 
+                          position: 'relative', 
+                          height: '75px', 
+                          width: '100%', 
+                          marginTop: '10px', 
+                          marginBottom: '10px',
+                          display: 'flex',
+                          alignItems: 'flex-end'
+                        }}>
+                          {Math.ceil(dailyRem / 50) === 0 ? (
+                            <div style={{ 
+                              width: '100%', 
+                              height: '54px', 
+                              borderRadius: '8px', 
+                              border: '1.5px dashed rgba(52, 199, 89, 0.4)', 
+                              display: 'flex', 
+                              alignItems: 'center', 
+                              justifyContent: 'center', 
+                              color: 'var(--green)',
+                              fontSize: '12px',
+                              fontWeight: '600',
+                              backgroundColor: 'rgba(52, 199, 89, 0.02)'
+                            }}>
+                              🎉 All Notes Fully Invested!
+                            </div>
+                          ) : (
+                            (() => {
+                              const remainingNotes = Math.ceil(dailyRem / 50);
+                              return Array.from({ length: remainingNotes }).map((_, idx) => {
+                                const reversedIdx = remainingNotes - 1 - idx;
+                                const isTop = reversedIdx === 0;
+                                const isCurrentActive = state.timer && state.timer.projectId === p.id && isTop;
+                                
+                                return (
+                                  <div
+                                    key={idx}
+                                    style={{
+                                      position: 'absolute',
+                                      left: 0,
+                                      right: 0,
+                                      bottom: `${idx * 4}px`,
+                                      height: '54px',
+                                      borderRadius: '8px',
+                                      background: isCurrentActive 
+                                        ? `linear-gradient(135deg, ${theme.bg} 0%, rgba(255, 255, 255, 0.85) 100%)` 
+                                        : 'var(--surface-2)',
+                                      border: isCurrentActive 
+                                        ? `2px solid ${theme.hex}` 
+                                        : `1.5px solid ${theme.border}`,
+                                      boxShadow: isCurrentActive 
+                                        ? `0 0 12px ${theme.hex}33, 0 2px 6px rgba(0, 0, 0, 0.05)` 
+                                        : '0 1.5px 3px rgba(0, 0, 0, 0.04)',
+                                      transform: `scale(${1 - (reversedIdx * 0.035)}) translateY(${-reversedIdx * 1}px)`,
+                                      zIndex: 10 - reversedIdx,
+                                      transition: 'all 0.3s ease',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'space-between',
+                                      padding: '0 12px',
+                                      opacity: isTop ? 1 : 0.85
+                                    }}
+                                  >
+                                    <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-1)' }}>
+                                      {isTop ? 'Active Note' : `Note #${remainingNotes - reversedIdx}`}
+                                    </span>
+                                    
+                                    <span style={{ 
+                                      fontSize: '12px', 
+                                      fontWeight: '800', 
+                                      fontFamily: isCurrentActive ? 'monospace' : 'inherit',
+                                      color: isCurrentActive ? 'var(--red)' : theme.hex 
+                                    }}>
+                                      {isCurrentActive ? (
+                                        (() => {
+                                          const elapsed = getTimerSeconds(state.timer);
+                                          const remaining = Math.max(0, 1800 - elapsed);
+                                          const remMin = Math.floor(remaining / 60);
+                                          const remSec = remaining % 60;
+                                          return `⏱️ ${remMin}:${remSec < 10 ? '0' : ''}${remSec}`;
+                                        })()
+                                      ) : (
+                                        `$50 (30m)`
+                                      )}
+                                    </span>
+                                  </div>
+                                );
+                              });
+                            })()
+                          )}
                         </div>
-                        
-                        <div className="proj-progress-wrap" style={{ margin: '8px 0 6px' }}>
-                          <div
-                            className="proj-progress-fill"
-                            style={{
-                              width: `${Math.min(100, dailyPct)}%`,
-                              backgroundColor: theme.hex
-                            }}
-                          />
-                        </div>
-                        
                       </div>
 
                       {/* Dynamic Stopwatch & Quick log Group */}
@@ -2404,7 +2477,13 @@ function Dashboard({ state, setState }) {
                           onMouseLeave={e => { if (state.timer === null || state.timer.projectId === p.id) e.currentTarget.style.opacity = 1 }}
                         >
                           {state.timer && state.timer.projectId === p.id
-                            ? `⏹️ Stop & Invest ($${Math.round((getTimerSeconds(state.timer) / 1800) * 50)}) [${Math.floor(getTimerSeconds(state.timer) / 60)}:${(getTimerSeconds(state.timer) % 60) < 10 ? '0' : ''}${getTimerSeconds(state.timer) % 60}]`
+                            ? (() => {
+                                const elapsed = getTimerSeconds(state.timer);
+                                const remaining = Math.max(0, 1800 - elapsed);
+                                const remMin = Math.floor(remaining / 60);
+                                const remSec = remaining % 60;
+                                return `⏹️ Stop (${remMin}:${remSec < 10 ? '0' : ''}${remSec})`;
+                              })()
                             : 'Start Focus'
                           }
                         </button>
