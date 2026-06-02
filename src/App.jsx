@@ -257,6 +257,74 @@ function rebuildCardsPreservingSpent(newProjects, newDailyCash, existingCards) {
     return [...spentCardsForDay, ...freshCards]
   })
 }
+function redistributeDailyBudget(projects, day, amountToDistribute, excludedProjId) {
+  // Find other projects that have allocation on this day
+  let targets = projects.filter(pr => pr.id !== excludedProjId && (pr.dailyAllocations?.[day] ?? 0) > 0);
+  
+  // If no other projects are active today, distribute to ALL other projects regardless of whether they are active today
+  if (targets.length === 0) {
+    targets = projects.filter(pr => pr.id !== excludedProjId);
+  }
+  
+  if (targets.length === 0) {
+    // No other projects exist at all! Nothing to redistribute to
+    return projects.map(pr => {
+      if (pr.id === excludedProjId) {
+        const nextDaily = { ...pr.dailyAllocations, [day]: 0 };
+        const nextWeekly = Object.values(nextDaily).reduce((a, b) => a + b, 0);
+        return {
+          ...pr,
+          dailyAllocations: nextDaily,
+          allocatedCash: nextWeekly
+        };
+      }
+      return pr;
+    });
+  }
+  
+  // Sort targets by priority (highest priority = lower priority number first)
+  targets.sort((a, b) => a.priority - b.priority);
+  
+  // Distribute amountToDistribute in units of $50 round-robin
+  let remaining = amountToDistribute;
+  const distribution = {};
+  targets.forEach(t => { distribution[t.id] = 0; });
+  
+  let safety = 0;
+  while (remaining >= 50 && safety < 100) {
+    safety++;
+    for (let i = 0; i < targets.length; i++) {
+      if (remaining < 50) break;
+      distribution[targets[i].id] += 50;
+      remaining -= 50;
+    }
+  }
+  
+  return projects.map(pr => {
+    if (pr.id === excludedProjId) {
+      const nextDaily = { ...pr.dailyAllocations, [day]: 0 };
+      const nextWeekly = Object.values(nextDaily).reduce((a, b) => a + b, 0);
+      return {
+        ...pr,
+        dailyAllocations: nextDaily,
+        allocatedCash: nextWeekly
+      };
+    }
+    
+    if (distribution[pr.id] != null && distribution[pr.id] > 0) {
+      const currentAlloc = pr.dailyAllocations?.[day] ?? 0;
+      const nextDaily = { ...pr.dailyAllocations, [day]: currentAlloc + distribution[pr.id] };
+      const nextWeekly = Object.values(nextDaily).reduce((a, b) => a + b, 0);
+      return {
+        ...pr,
+        dailyAllocations: nextDaily,
+        allocatedCash: nextWeekly
+      };
+    }
+    
+    return pr;
+  });
+}
 
 /* ─────────────────────────────────────────────────────
    Wheel Picker
@@ -2226,85 +2294,127 @@ function Dashboard({ state, setState }) {
                             Rank {p.priority}
                           </span>
                           
-                          {/* Top Right Allocation Dropdown */}
-                          <div style={{ position: 'relative' }}>
-                            <button 
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                setOpenDropdownProjId(openDropdownProjId === p.id ? null : p.id)
-                              }}
-                              style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '4px',
-                                fontSize: '11px',
-                                fontWeight: '700',
-                                color: theme.hex,
-                                background: '#FFFFFF',
-                                border: `1.5px solid ${theme.border}`,
-                                borderRadius: '6px',
-                                padding: '4px 8px',
-                                cursor: 'pointer',
-                                transition: 'all 0.2s',
-                                outline: 'none'
-                              }}
-                              title="Set today's budget"
-                            >
-                              <Sliders size={10} /> {(dailyAlloc / 100).toFixed(1)}h
-                            </button>
-                            
-                            {openDropdownProjId === p.id && (
-                              <div 
-                                style={{
-                                  position: 'absolute',
-                                  top: '28px',
-                                  right: '0',
-                                  background: 'var(--surface)',
-                                  border: '1px solid var(--border-strong)',
-                                  borderRadius: 'var(--r-sm)',
-                                  boxShadow: 'var(--shadow-md)',
-                                  padding: '6px',
-                                  zIndex: 100,
-                                  minWidth: '130px',
-                                  display: 'flex',
-                                  flexDirection: 'column',
-                                  gap: '2px'
+                          {/* Top Right Actions */}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            {dailyAlloc > 0 && (
+                              <button 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (confirm(`Discard "${p.name}" for today and redistribute its $${dailyAlloc} budget among other projects?`)) {
+                                    setState(s => {
+                                      const nextProjects = redistributeDailyBudget(s.projects, selectedDay, dailyAlloc, p.id);
+                                      const desc = `Discarded "${p.name}" today: redistributed $${dailyAlloc} budget`;
+                                      const entry = { ts: new Date().toLocaleTimeString(), desc, amt: 0, type: 'neutral' };
+                                      return {
+                                        ...s,
+                                        projects: nextProjects,
+                                        ledger: [entry, ...s.ledger]
+                                      };
+                                    });
+                                  }
                                 }}
-                                onClick={(e) => e.stopPropagation()}
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  background: 'none',
+                                  border: 'none',
+                                  color: 'var(--red)',
+                                  opacity: 0.5,
+                                  cursor: 'pointer',
+                                  padding: '4px',
+                                  borderRadius: '4px',
+                                  transition: 'all 0.2s',
+                                  outline: 'none'
+                                }}
+                                onMouseEnter={e => { e.currentTarget.style.opacity = 1; e.currentTarget.style.backgroundColor = 'rgba(255, 69, 58, 0.08)' }}
+                                onMouseLeave={e => { e.currentTarget.style.opacity = 0.5; e.currentTarget.style.backgroundColor = 'transparent' }}
+                                title="Discard this project for today and redistribute its budget"
                               >
-                                <div style={{ fontSize: '9px', fontWeight: '700', color: 'var(--text-3)', padding: '4px 8px', textTransform: 'uppercase', borderBottom: '1px solid var(--border)', marginBottom: '4px' }}>Today's Budget</div>
-                                {[0, 50, 100, 150, 200, 250, 300, 400, 500].map(amt => {
-                                  const hours = amt / 100
-                                  const label = amt === 0 ? '0h (Rest)' : `${hours}h ($${amt})`
-                                  return (
-                                    <button
-                                      key={amt}
-                                      onClick={() => {
-                                        setOpenDropdownProjId(null)
-                                        handleAdjust(amt - dailyAlloc)
-                                      }}
-                                      style={{
-                                        textAlign: 'left',
-                                        border: 'none',
-                                        background: dailyAlloc === amt ? 'var(--accent-soft)' : 'none',
-                                        color: dailyAlloc === amt ? 'var(--accent)' : 'var(--text-1)',
-                                        padding: '5px 8px',
-                                        fontSize: '12px',
-                                        borderRadius: '4px',
-                                        cursor: 'pointer',
-                                        fontWeight: dailyAlloc === amt ? '600' : '400',
-                                        transition: 'all 0.15s',
-                                        width: '100%'
-                                      }}
-                                      onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--surface-2)'}
-                                      onMouseLeave={e => e.currentTarget.style.backgroundColor = dailyAlloc === amt ? 'var(--accent-soft)' : 'transparent'}
-                                    >
-                                      {label}
-                                    </button>
-                                  )
-                                })}
-                              </div>
+                                <X size={13} />
+                              </button>
                             )}
+
+                            {/* Top Right Allocation Dropdown */}
+                            <div style={{ position: 'relative' }}>
+                              <button 
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setOpenDropdownProjId(openDropdownProjId === p.id ? null : p.id)
+                                }}
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  fontSize: '11px',
+                                  fontWeight: '700',
+                                  color: theme.hex,
+                                  background: '#FFFFFF',
+                                  border: `1.5px solid ${theme.border}`,
+                                  borderRadius: '6px',
+                                  padding: '4px 8px',
+                                  cursor: 'pointer',
+                                  transition: 'all 0.2s',
+                                  outline: 'none'
+                                }}
+                                title="Set today's budget"
+                              >
+                                <Sliders size={10} /> {(dailyAlloc / 100).toFixed(1)}h
+                              </button>
+                              
+                              {openDropdownProjId === p.id && (
+                                <div 
+                                  style={{
+                                    position: 'absolute',
+                                    top: '28px',
+                                    right: '0',
+                                    background: 'var(--surface)',
+                                    border: '1px solid var(--border-strong)',
+                                    borderRadius: 'var(--r-sm)',
+                                    boxShadow: 'var(--shadow-md)',
+                                    padding: '6px',
+                                    zIndex: 100,
+                                    minWidth: '130px',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '2px'
+                                  }}
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <div style={{ fontSize: '9px', fontWeight: '700', color: 'var(--text-3)', padding: '4px 8px', textTransform: 'uppercase', borderBottom: '1px solid var(--border)', marginBottom: '4px' }}>Today's Budget</div>
+                                  {[0, 50, 100, 150, 200, 250, 300, 400, 500].map(amt => {
+                                    const hours = amt / 100
+                                    const label = amt === 0 ? '0h (Rest)' : `${hours}h ($${amt})`
+                                    return (
+                                      <button
+                                        key={amt}
+                                        onClick={() => {
+                                          setOpenDropdownProjId(null)
+                                          handleAdjust(amt - dailyAlloc)
+                                        }}
+                                        style={{
+                                          textAlign: 'left',
+                                          border: 'none',
+                                          background: dailyAlloc === amt ? 'var(--accent-soft)' : 'none',
+                                          color: dailyAlloc === amt ? 'var(--accent)' : 'var(--text-1)',
+                                          padding: '5px 8px',
+                                          fontSize: '12px',
+                                          borderRadius: '4px',
+                                          cursor: 'pointer',
+                                          fontWeight: dailyAlloc === amt ? '600' : '400',
+                                          transition: 'all 0.15s',
+                                          width: '100%'
+                                        }}
+                                        onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--surface-2)'}
+                                        onMouseLeave={e => e.currentTarget.style.backgroundColor = dailyAlloc === amt ? 'var(--accent-soft)' : 'transparent'}
+                                      >
+                                        {label}
+                                      </button>
+                                    )
+                                  })}
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </div>
                         <h3 className="card-name" style={{ marginTop: '10px', fontSize: '16px', fontWeight: '700', color: 'var(--text-1)' }}>
