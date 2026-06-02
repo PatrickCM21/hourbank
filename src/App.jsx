@@ -1820,6 +1820,7 @@ function Dashboard({ state, setState }) {
   // Selected Day Standing Calculations
   const selectedIdx = DAYS.indexOf(selectedDay)
   const daysUpToSelected = DAYS.slice(0, selectedIdx + 1)
+  const daysBeforeSelected = DAYS.slice(0, selectedIdx)
   const overallBudgetSoFar = daysUpToSelected.reduce((sum, d) => sum + (dailyCash[d] ?? 0), 0)
   const overallSpentSoFar = daysUpToSelected.reduce((sum, d) => sum + (state.dailySpent?.[d] ?? 0), 0)
   const overallVarianceSoFar = overallSpentSoFar - overallBudgetSoFar
@@ -2572,13 +2573,13 @@ function Dashboard({ state, setState }) {
               </div>
               
               {projects.map(p => {
-                const pBudgetSoFar = daysUpToSelected.reduce((sum, d) => sum + (p.dailyAllocations?.[d] ?? 0), 0)
+                const pBudgetBeforeToday = daysBeforeSelected.reduce((sum, d) => sum + (p.dailyAllocations?.[d] ?? 0), 0)
                 const pSpentSoFar = daysUpToSelected.reduce((sum, d) => sum + (p.dailySpent?.[d] ?? 0), 0)
-                const variance = pSpentSoFar - pBudgetSoFar
+                const variance = pSpentSoFar - pBudgetBeforeToday
                 const isDebt = variance < 0
                 const isSurplus = variance > 0
                 const cTheme = COLORS[p.color] || COLORS.blue
-                const pct = pBudgetSoFar > 0 ? Math.min(100, Math.round((pSpentSoFar / pBudgetSoFar) * 100)) : 0
+                const pct = pBudgetBeforeToday > 0 ? Math.min(100, Math.round((pSpentSoFar / pBudgetBeforeToday) * 100)) : 0
 
                 return (
                   <div key={p.id} style={{ 
