@@ -1845,8 +1845,8 @@ function Dashboard({ state, setState }) {
       <div className="dashboard-hero">
         <div className="hero-bg" />
         <div style={{ fontSize: 13, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-3)', marginBottom: 8 }}>Today's Balance</div>
-        <div className="hero-amount">${dayRemaining.toLocaleString()}</div>
-        <div className="hero-sub">of ${dayBudget} allocated today · ${daySpent} invested</div>
+        <div className="hero-amount">{dayRemaining / 100} {dayRemaining / 100 === 1 ? 'Hour' : 'Hours'}</div>
+        <div className="hero-sub">${daySpent} invested of ${dayBudget} allocated today</div>
         <div className="hero-tag">
           {dayBudget > 0 
             ? `${Math.round((daySpent / dayBudget) * 100)}% complete today` 
