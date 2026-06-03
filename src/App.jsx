@@ -3,7 +3,7 @@ import {
   ChevronUp, ChevronDown, ArrowRight, ArrowLeft,
   Play, Pause, X, ArrowLeftRight, Landmark, ShieldCheck, RotateCcw,
   Sliders, CheckCircle2, Clock, Layers, Receipt, Check, AlertCircle,
-  History
+  History, BarChart3
 } from 'lucide-react'
 
 /* ─────────────────────────────────────────────────────
@@ -12,6 +12,12 @@ import {
 const STORAGE_KEY = 'hourbank_v4'
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 const DAYS_FULL = { Mon: 'Monday', Tue: 'Tuesday', Wed: 'Wednesday', Thu: 'Thursday', Fri: 'Friday', Sat: 'Saturday', Sun: 'Sunday' }
+const CYCLE_PHASES = {
+  period: { name: 'Period', mult: 0.8, color: '#FF5B5B', glow: 'rgba(255, 91, 91, 0.12)', border: 'rgba(255, 91, 91, 0.25)' },
+  luteal: { name: 'Luteal', mult: 0.8, color: '#4AA4FF', glow: 'rgba(74, 164, 255, 0.12)', border: 'rgba(74, 164, 255, 0.25)' },
+  follicular: { name: 'Follicular', mult: 1.0, color: '#4BD37B', glow: 'rgba(75, 211, 123, 0.12)', border: 'rgba(75, 211, 123, 0.25)' },
+  ovulation: { name: 'Ovulation', mult: 1.0, color: '#B86BFF', glow: 'rgba(184, 107, 255, 0.12)', border: 'rgba(184, 107, 255, 0.25)' },
+}
 const ITEM_H = 48   // px height per wheel item
 
 /* ─────────────────────────────────────────────────────
@@ -188,6 +194,14 @@ function migrateState(s) {
   }
   if (!updated.history) {
     updated.history = []
+    migrated = true
+  }
+  if (updated.cyclePhase === undefined) {
+    updated.cyclePhase = 'follicular'
+    migrated = true
+  }
+  if (updated.reportOpen === undefined) {
+    updated.reportOpen = false
     migrated = true
   }
 
@@ -557,6 +571,8 @@ function makeDefault() {
     dailySpent: { Mon: 0, Tue: 0, Wed: 0, Thu: 0, Fri: 0, Sat: 0, Sun: 0 },
     cards: [], ledger: [], selectedDay: todayKey(),
     timer: null,
+    cyclePhase: 'follicular',
+    reportOpen: false,
     tradeOpen: false, tradeFrom: 'Mon', tradeTo: 'Tue', tradeAmt: 100, tradeFeedback: null,
     borrowOpen: false, borrowAmt: 100,
     excuseOpen: false, excuseText: '',
@@ -1193,6 +1209,181 @@ function SettingsModal({ state, setState, onClose }) {
   )
 }
 
+function ReportModal({ state, setState, onClose }) {
+  const { projects } = state
+
+  // Calculate maximum allocation to scale heights proportionally
+  const maxAlloc = Math.max(...projects.map(pr => pr.allocatedCash / 100), 2)
+
+  return (
+    <div className="overlay">
+      <div className="modal-sheet" style={{ maxWidth: '580px', width: '95%', maxHeight: '90vh', display: 'flex', flexDirection: 'column', padding: '2rem' }}>
+        <div className="modal-header" style={{ marginBottom: '8px' }}>
+          <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <BarChart3 size={18} style={{ color: 'var(--accent)' }} />
+            Weekly Progress Report
+          </h3>
+          <button className="btn btn-icon btn-sm" onClick={onClose}><X size={16} /></button>
+        </div>
+        <p className="modal-desc" style={{ marginBottom: '2rem' }}>
+          Track your focus investments for the current week. Completed focus hours are colored, and remaining goals are shown as faded columns.
+        </p>
+
+        {/* Chart Area */}
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-around',
+          alignItems: 'flex-end',
+          height: '240px',
+          background: 'var(--surface-2)',
+          border: '1px solid var(--border)',
+          borderRadius: 'var(--r-md)',
+          padding: '24px 16px 12px',
+          marginBottom: '2rem',
+          position: 'relative'
+        }}>
+          {/* Y-Axis helper lines */}
+          <div style={{ position: 'absolute', left: '16px', right: '16px', top: '24px', borderBottom: '1px dashed var(--border)', zIndex: 0 }} />
+          <div style={{ position: 'absolute', left: '16px', right: '16px', top: '78px', borderBottom: '1px dashed var(--border)', zIndex: 0 }} />
+          <div style={{ position: 'absolute', left: '16px', right: '16px', top: '132px', borderBottom: '1px dashed var(--border)', zIndex: 0 }} />
+          <div style={{ position: 'absolute', left: '16px', right: '16px', top: '186px', borderBottom: '1px dashed var(--border)', zIndex: 0 }} />
+
+          {projects.map(p => {
+            const theme = COLORS[p.color] || COLORS.blue
+            const compH = p.spentCash / 100
+            const allocH = p.allocatedCash / 100
+            const remH = Math.max(0, allocH - compH)
+
+            const displayAllocH = allocH === 0 ? compH : allocH
+            const containerHeight = displayAllocH === 0 ? 6 : (displayAllocH / maxAlloc) * 180
+            
+            const compPct = displayAllocH > 0 ? (compH / displayAllocH) * 100 : 0
+            const remPct = displayAllocH > 0 ? (remH / displayAllocH) * 100 : 0
+
+            return (
+              <div key={p.id} style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                flex: 1,
+                zIndex: 1,
+                height: '100%',
+                justifyContent: 'flex-end'
+              }}>
+                {/* Column Bar Stack */}
+                <div 
+                  style={{
+                    width: '36px',
+                    height: `${containerHeight}px`,
+                    backgroundColor: theme.bg,
+                    border: `1.5px solid ${theme.border}`,
+                    borderRadius: '8px',
+                    position: 'relative',
+                    overflow: 'hidden',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'flex-end',
+                    boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.05)'
+                  }}
+                  title={`${p.name}: ${compH.toFixed(1)}h completed, ${remH.toFixed(1)}h remaining`}
+                >
+                  {/* Faded Remaining Bar Segment */}
+                  {remH > 0 && (
+                    <div 
+                      style={{
+                        height: `${remPct}%`,
+                        width: '100%',
+                        backgroundColor: theme.hex,
+                        opacity: 0.15,
+                        transition: 'height 0.3s ease'
+                      }}
+                    />
+                  )}
+                  {/* Solid Completed Bar Segment */}
+                  {compH > 0 && (
+                    <div 
+                      style={{
+                        height: `${compPct}%`,
+                        width: '100%',
+                        backgroundColor: theme.hex,
+                        boxShadow: '0 -1px 3px rgba(0,0,0,0.1)',
+                        transition: 'height 0.3s ease'
+                      }}
+                    />
+                  )}
+                </div>
+                {/* Short Name/Label */}
+                <div style={{ 
+                  marginTop: '8px', 
+                  fontSize: '10px', 
+                  fontWeight: '700', 
+                  textTransform: 'uppercase', 
+                  color: 'var(--text-2)',
+                  textAlign: 'center',
+                  maxWidth: '70px',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis'
+                }} title={p.name}>
+                  {p.name}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+
+        {/* Numeric Details List */}
+        <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          {projects.map(p => {
+            const theme = COLORS[p.color] || COLORS.blue
+            const compH = p.spentCash / 100
+            const allocH = p.allocatedCash / 100
+            const remH = Math.max(0, allocH - compH)
+            const pct = allocH > 0 ? Math.round((compH / allocH) * 100) : 100
+
+            return (
+              <div 
+                key={p.id} 
+                style={{ 
+                  display: 'flex', 
+                  justifyContent: 'space-between', 
+                  alignItems: 'center', 
+                  background: 'var(--surface-2)', 
+                  border: `1px solid ${theme.border}`,
+                  borderRadius: 'var(--r-sm)',
+                  padding: '10px 14px'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: theme.hex }} />
+                  <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-1)' }}>{p.name}</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <span style={{ fontSize: '12px', color: 'var(--text-2)', fontWeight: '500' }}>
+                    <strong>{compH.toFixed(1)}h</strong> done of <strong>{allocH.toFixed(1)}h</strong> {remH > 0 && `(${remH.toFixed(1)}h left)`}
+                  </span>
+                  <span 
+                    style={{ 
+                      fontSize: '11px', 
+                      fontWeight: '700', 
+                      background: pct >= 100 ? 'var(--green-soft)' : theme.bg, 
+                      color: pct >= 100 ? '#1A7A33' : theme.hex,
+                      padding: '3px 8px',
+                      borderRadius: '12px'
+                    }}
+                  >
+                    {pct}%
+                  </span>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function HistoryModal({ state, setState, onClose }) {
   const { history } = state
   return (
@@ -1674,6 +1865,12 @@ function Dashboard({ state, setState }) {
           timer, tradeOpen, borrowOpen, excuseOpen, settingsOpen,
           loginOpen, user, token, syncStatus } = state
   const [openDropdownProjId, setOpenDropdownProjId] = useState(null)
+  const [cycleDropdownOpen, setCycleDropdownOpen] = useState(false)
+
+  const activePhaseKey = state.cyclePhase || 'follicular'
+  const activePhaseInfo = CYCLE_PHASES[activePhaseKey]
+  const cycleMultiplier = activePhaseInfo.mult
+
   // Calculate dailyCash dynamically based on daily project allocations
   const dailyCash = DAYS.reduce((acc, d) => {
     acc[d] = projects.reduce((sum, p) => sum + (p.dailyAllocations?.[d] ?? 0), 0)
@@ -1795,10 +1992,13 @@ function Dashboard({ state, setState }) {
   // Metrics
   const totalSpent = projects.reduce((a, p) => a + p.spentCash, 0)
   const weekRemaining = Math.max(0, totalCash - totalSpent)
-  const dayBudget = dailyCash[selectedDay] ?? 0
+  const todayIdx = DAYS.indexOf(todayKey())
+  const selectedIdx = DAYS.indexOf(selectedDay)
+  const isPastSelectedDay = selectedIdx < todayIdx
+  const dayBudgetBase = dailyCash[selectedDay] ?? 0
+  const dayBudget = dayBudgetBase * (isPastSelectedDay ? 1.0 : cycleMultiplier)
   const daySpent = state.dailySpent?.[selectedDay] ?? 0
   const dayRemaining = Math.max(0, dayBudget - daySpent)
-  const todayIdx = DAYS.indexOf(todayKey())
   // Find focus project with the least investment (lowest weekly progress % spentCash / allocatedCash)
   const activeBudgetedProjects = projects.filter(p => p.allocatedCash > 0)
   let leastInvestedProj = null
@@ -1819,7 +2019,7 @@ function Dashboard({ state, setState }) {
   const leastInvestedTheme = leastInvestedProj ? (COLORS[leastInvestedProj.color] || COLORS.blue) : null
   const overdrafted = ledger.some(e => e.desc?.includes('OVERDRAFT'))
   const todayKeyName = todayKey()
-  const todayBudget = dailyCash[todayKeyName] ?? 0
+  const todayBudget = (dailyCash[todayKeyName] ?? 0) * cycleMultiplier
   const todaySpent = state.dailySpent?.[todayKeyName] ?? 0
   const todayProgressPct = todayBudget > 0 ? (todaySpent / todayBudget) * 100 : 100
 
@@ -1834,7 +2034,6 @@ function Dashboard({ state, setState }) {
           : 'ecstatic'
 
   // Selected Day Standing Calculations
-  const selectedIdx = DAYS.indexOf(selectedDay)
   const daysUpToSelected = DAYS.slice(0, selectedIdx + 1)
   const daysBeforeSelected = DAYS.slice(0, selectedIdx)
   const overallBudgetSoFar = daysUpToSelected.reduce((sum, d) => sum + (dailyCash[d] ?? 0), 0)
@@ -1901,6 +2100,101 @@ function Dashboard({ state, setState }) {
           </p>
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          {/* Cycle Phase Dropdown */}
+          <div style={{ position: 'relative' }}>
+            <button 
+              className="btn btn-secondary btn-sm"
+              style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '6px',
+                borderColor: activePhaseInfo.border,
+                background: 'var(--surface-2)',
+              }}
+              onClick={() => setCycleDropdownOpen(!cycleDropdownOpen)}
+            >
+              <span style={{ 
+                width: 8, 
+                height: 8, 
+                borderRadius: '50%', 
+                backgroundColor: activePhaseInfo.color,
+                boxShadow: `0 0 6px ${activePhaseInfo.color}` 
+              }} />
+              <span>Phase: {activePhaseInfo.name} ({Math.round(activePhaseInfo.mult * 100)}%)</span>
+              <ChevronDown size={12} style={{ opacity: 0.6 }} />
+            </button>
+            {cycleDropdownOpen && (
+              <>
+                <div 
+                  style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 998 }} 
+                  onClick={() => setCycleDropdownOpen(false)} 
+                />
+                <div 
+                  style={{
+                    position: 'absolute',
+                    right: 0,
+                    top: 'calc(100% + 6px)',
+                    background: 'var(--surface)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '8px',
+                    boxShadow: 'var(--shadow-md), 0 4px 20px rgba(0,0,0,0.15)',
+                    padding: '4px',
+                    zIndex: 999,
+                    minWidth: '160px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '2px'
+                  }}
+                >
+                  {Object.entries(CYCLE_PHASES).map(([key, info]) => {
+                    const isSelected = activePhaseKey === key
+                    return (
+                      <button
+                        key={key}
+                        onClick={() => {
+                          setState(s => ({ ...s, cyclePhase: key }))
+                          setCycleDropdownOpen(false)
+                        }}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          width: '100%',
+                          padding: '8px 12px',
+                          border: 'none',
+                          background: isSelected ? 'var(--surface-3)' : 'transparent',
+                          color: isSelected ? 'var(--text-1)' : 'var(--text-2)',
+                          borderRadius: '6px',
+                          cursor: 'pointer',
+                          fontSize: '12px',
+                          fontWeight: isSelected ? '600' : '400',
+                          textAlign: 'left',
+                          transition: 'background 0.15s ease'
+                        }}
+                        onMouseEnter={(e) => {
+                          if (!isSelected) e.currentTarget.style.background = 'var(--surface-2)'
+                        }}
+                        onMouseLeave={(e) => {
+                          if (!isSelected) e.currentTarget.style.background = 'transparent'
+                        }}
+                      >
+                        <span style={{ 
+                          width: 8, 
+                          height: 8, 
+                          borderRadius: '50%', 
+                          backgroundColor: info.color,
+                          boxShadow: `0 0 6px ${info.color}`
+                        }} />
+                        <span style={{ flexGrow: 1 }}>{info.name}</span>
+                        <span style={{ fontSize: '10px', opacity: 0.6 }}>{Math.round(info.mult * 100)}%</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </>
+            )}
+          </div>
+
           {/* User Auth control */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <span style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-2)', background: 'var(--surface-2)', padding: '6px 12px', borderRadius: '980px', border: '1px solid var(--border)' }}>
@@ -1921,14 +2215,28 @@ function Dashboard({ state, setState }) {
           <button className="btn btn-secondary btn-sm" onClick={() => setState(s => ({ ...s, historyOpen: true }))}><History size={13} style={{ marginRight: '4px' }} /> History</button>
           <button className="btn btn-secondary btn-sm" onClick={() => setState(s => ({ ...s, tradeOpen: true, tradeFeedback: null }))}><ArrowLeftRight size={13} /> Trade</button>
           <button className="btn btn-secondary btn-sm" onClick={() => setState(s => ({ ...s, borrowOpen: true }))}><Landmark size={13} /> Overdraft</button>
+          <button className="btn btn-secondary btn-sm" onClick={() => setState(s => ({ ...s, reportOpen: true }))}><BarChart3 size={13} style={{ marginRight: '4px' }} /> Report</button>
           <button className="btn btn-icon btn-sm" style={{ fontSize: 13 }} onClick={resetWeek} title="Reset week"><RotateCcw size={14} /></button>
           <button className="btn btn-icon btn-sm" style={{ fontSize: 13 }} onClick={() => setState(s => ({ ...s, settingsOpen: true }))} title="Adjust"><Sliders size={14} /></button>
         </div>
       </div>
 
       {/* Hero */}
-      <div className="dashboard-hero">
-        <div className="hero-bg" />
+      <div 
+        className="dashboard-hero"
+        style={{
+          border: `1.5px solid ${activePhaseInfo.border}`,
+          boxShadow: `0 0 25px ${activePhaseInfo.glow}, var(--shadow-sm)`,
+          transition: 'all 0.3s ease',
+          background: `linear-gradient(180deg, ${activePhaseInfo.glow} 0%, var(--surface) 100%)`
+        }}
+      >
+        <div 
+          className="hero-bg" 
+          style={{
+            background: `radial-gradient(ellipse at 60% -20%, ${activePhaseInfo.glow} 0%, transparent 70%)`
+          }}
+        />
         <div style={{ fontSize: 13, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-3)', marginBottom: 8 }}>Today's Balance</div>
         <div className="hero-amount">{dayRemaining / 100} {dayRemaining / 100 === 1 ? 'Hour' : 'Hours'}</div>
         <div className="hero-sub">${daySpent} invested of ${dayBudget} allocated today</div>
@@ -1991,7 +2299,10 @@ function Dashboard({ state, setState }) {
       {/* Day strip */}
       <div className="day-strip">
         {DAYS.map(d => {
-          const db = dailyCash[d] ?? 0
+          const isPastD = DAYS.indexOf(d) < todayIdx
+          const mult = isPastD ? 1.0 : cycleMultiplier
+          const dbBase = dailyCash[d] ?? 0
+          const db = dbBase * mult
           const ds = state.dailySpent?.[d] ?? 0
           const done = db > 0 && ds >= db
           return (
@@ -2106,10 +2417,13 @@ function Dashboard({ state, setState }) {
             : <div className="cards-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '16px' }}>
                 {projects.map(p => {
                   const theme = COLORS[p.color] ?? COLORS.blue
-                  const dailyAlloc = p.dailyAllocations?.[selectedDay] ?? 0
+                  const baseDailyAlloc = p.dailyAllocations?.[selectedDay] ?? 0
+                  const isPastSelectedDay = DAYS.indexOf(selectedDay) < todayIdx
+                  const cardMultiplier = isPastSelectedDay ? 1.0 : cycleMultiplier
+                  const dailyAlloc = baseDailyAlloc * cardMultiplier
                   const dailySp = p.dailySpent?.[selectedDay] ?? 0
                   const dailyRem = Math.max(0, dailyAlloc - dailySp)
-                  const isDeactivated = dailyAlloc === 0
+                  const isDeactivated = baseDailyAlloc === 0
                   
                   // Weekly metrics for summary
                   const weeklyAlloc = p.allocatedCash ?? 0
@@ -2145,7 +2459,7 @@ function Dashboard({ state, setState }) {
                     if (isDeactivated) {
                       handleAdjust(100) // Default to 1 hour ($100) when turning on
                     } else {
-                      handleAdjust(-dailyAlloc) // Go down to 0
+                      handleAdjust(-baseDailyAlloc) // Go down to 0
                     }
                   }
 
@@ -2242,23 +2556,23 @@ function Dashboard({ state, setState }) {
                                         key={amt}
                                         onClick={() => {
                                           setOpenDropdownProjId(null)
-                                          handleAdjust(amt - dailyAlloc)
+                                          handleAdjust(amt - baseDailyAlloc)
                                         }}
                                         style={{
                                           textAlign: 'left',
                                           border: 'none',
-                                          background: dailyAlloc === amt ? 'var(--accent-soft)' : 'none',
-                                          color: dailyAlloc === amt ? 'var(--accent)' : 'var(--text-1)',
+                                          background: baseDailyAlloc === amt ? 'var(--accent-soft)' : 'none',
+                                          color: baseDailyAlloc === amt ? 'var(--accent)' : 'var(--text-1)',
                                           padding: '5px 8px',
                                           fontSize: '12px',
                                           borderRadius: '4px',
                                           cursor: 'pointer',
-                                          fontWeight: dailyAlloc === amt ? '600' : '400',
+                                          fontWeight: baseDailyAlloc === amt ? '600' : '400',
                                           transition: 'all 0.15s',
                                           width: '100%'
                                         }}
                                         onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--surface-2)'}
-                                        onMouseLeave={e => e.currentTarget.style.backgroundColor = dailyAlloc === amt ? 'var(--accent-soft)' : 'transparent'}
+                                        onMouseLeave={e => e.currentTarget.style.backgroundColor = baseDailyAlloc === amt ? 'var(--accent-soft)' : 'transparent'}
                                       >
                                         {label}
                                       </button>
@@ -2332,14 +2646,14 @@ function Dashboard({ state, setState }) {
                           
                           {/* Top Right Actions */}
                           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            {dailyAlloc > 0 && (
+                            {baseDailyAlloc > 0 && (
                               <button 
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   if (confirm(`Discard "${p.name}" for today and redistribute its $${dailyAlloc} budget among other projects?`)) {
                                     setState(s => {
-                                      const nextProjects = redistributeDailyBudget(s.projects, selectedDay, dailyAlloc, p.id);
-                                      const desc = `Discarded "${p.name}" today: redistributed $${dailyAlloc} budget`;
+                                      const nextProjects = redistributeDailyBudget(s.projects, selectedDay, baseDailyAlloc, p.id);
+                                      const desc = `Discarded "${p.name}" today: redistributed $${baseDailyAlloc} budget`;
                                       const entry = { ts: new Date().toLocaleTimeString(), desc, amt: 0, type: 'neutral' };
                                       return {
                                         ...s,
@@ -2426,23 +2740,23 @@ function Dashboard({ state, setState }) {
                                         key={amt}
                                         onClick={() => {
                                           setOpenDropdownProjId(null)
-                                          handleAdjust(amt - dailyAlloc)
+                                          handleAdjust(amt - baseDailyAlloc)
                                         }}
                                         style={{
                                           textAlign: 'left',
                                           border: 'none',
-                                          background: dailyAlloc === amt ? 'var(--accent-soft)' : 'none',
-                                          color: dailyAlloc === amt ? 'var(--accent)' : 'var(--text-1)',
+                                          background: baseDailyAlloc === amt ? 'var(--accent-soft)' : 'none',
+                                          color: baseDailyAlloc === amt ? 'var(--accent)' : 'var(--text-1)',
                                           padding: '5px 8px',
                                           fontSize: '12px',
                                           borderRadius: '4px',
                                           cursor: 'pointer',
-                                          fontWeight: dailyAlloc === amt ? '600' : '400',
+                                          fontWeight: baseDailyAlloc === amt ? '600' : '400',
                                           transition: 'all 0.15s',
                                           width: '100%'
                                         }}
                                         onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--surface-2)'}
-                                        onMouseLeave={e => e.currentTarget.style.backgroundColor = dailyAlloc === amt ? 'var(--accent-soft)' : 'transparent'}
+                                        onMouseLeave={e => e.currentTarget.style.backgroundColor = baseDailyAlloc === amt ? 'var(--accent-soft)' : 'transparent'}
                                       >
                                         {label}
                                       </button>
@@ -2774,6 +3088,7 @@ function Dashboard({ state, setState }) {
       {borrowOpen && <BorrowModal state={state} setState={setState} onClose={() => setState(s => ({ ...s, borrowOpen: false }))} onExecute={executeBorrow} />}
       {settingsOpen && <SettingsModal state={state} setState={setState} onClose={() => setState(s => ({ ...s, settingsOpen: false }))} />}
       {state.historyOpen && <HistoryModal state={state} setState={setState} onClose={() => setState(s => ({ ...s, historyOpen: false }))} />}
+      {state.reportOpen && <ReportModal state={state} setState={setState} onClose={() => setState(s => ({ ...s, reportOpen: false }))} />}
     </div>
   )
 }
