@@ -2213,8 +2213,6 @@ function Dashboard({ state, setState }) {
           </div>
 
           <button className="btn btn-secondary btn-sm" onClick={() => setState(s => ({ ...s, historyOpen: true }))}><History size={13} style={{ marginRight: '4px' }} /> History</button>
-          <button className="btn btn-secondary btn-sm" onClick={() => setState(s => ({ ...s, tradeOpen: true, tradeFeedback: null }))}><ArrowLeftRight size={13} /> Trade</button>
-          <button className="btn btn-secondary btn-sm" onClick={() => setState(s => ({ ...s, borrowOpen: true }))}><Landmark size={13} /> Overdraft</button>
           <button className="btn btn-secondary btn-sm" onClick={() => setState(s => ({ ...s, reportOpen: true }))}><BarChart3 size={13} style={{ marginRight: '4px' }} /> Report</button>
           <button className="btn btn-icon btn-sm" style={{ fontSize: 13 }} onClick={resetWeek} title="Reset week"><RotateCcw size={14} /></button>
           <button className="btn btn-icon btn-sm" style={{ fontSize: 13 }} onClick={() => setState(s => ({ ...s, settingsOpen: true }))} title="Adjust"><Sliders size={14} /></button>
@@ -2239,7 +2237,13 @@ function Dashboard({ state, setState }) {
         />
         <div style={{ fontSize: 13, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-3)', marginBottom: 8 }}>Today's Balance</div>
         <div className="hero-amount">{dayRemaining / 100} {dayRemaining / 100 === 1 ? 'Hour' : 'Hours'}</div>
-        <div className="hero-sub">${daySpent} invested of ${dayBudget} allocated today</div>
+        {daySpent > dayBudget ? (
+          <div className="hero-sub">
+            ${dayBudget} invested of ${dayBudget} allocated today (<span style={{ color: '#FF9500', fontWeight: '700' }}>+${daySpent - dayBudget} borrowed</span>)
+          </div>
+        ) : (
+          <div className="hero-sub">${daySpent} invested of ${dayBudget} allocated today</div>
+        )}
         <div className="hero-tag">
           {dayBudget > 0 
             ? `${Math.round((daySpent / dayBudget) * 100)}% complete today` 
@@ -2776,19 +2780,49 @@ function Dashboard({ state, setState }) {
                         {/* Custom Progress Bar */}
                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', fontWeight: '600', color: 'var(--text-2)' }}>
                           <span>Today remaining:</span>
-                          <span style={{ color: dailyRem === 0 ? 'var(--green)' : 'var(--text-1)', fontWeight: '700' }}>
-                            {dailyRem === 0 ? '✓ Completed' : `$${dailyRem} left`}
-                          </span>
+                          {dailySp > dailyAlloc && dailyAlloc > 0 ? (
+                            <span style={{ color: '#FF9500', fontWeight: '700' }}>
+                              ✓ Completed (+${dailySp - dailyAlloc} borrowed)
+                            </span>
+                          ) : (
+                            <span style={{ color: dailyRem === 0 ? 'var(--green)' : 'var(--text-1)', fontWeight: '700' }}>
+                              {dailyRem === 0 ? '✓ Completed' : `$${dailyRem} left`}
+                            </span>
+                          )}
                         </div>
                         
-                        <div className="proj-progress-wrap" style={{ margin: '8px 0 6px' }}>
-                          <div
-                            className="proj-progress-fill"
-                            style={{
-                              width: `${Math.min(100, dailyPct)}%`,
-                              backgroundColor: theme.hex
-                            }}
-                          />
+                        <div className="proj-progress-wrap" style={{ margin: '8px 0 6px', display: 'flex', overflow: 'hidden', borderRadius: '4px', background: 'var(--border)' }}>
+                          {dailySp <= dailyAlloc ? (
+                            <div
+                              className="proj-progress-fill"
+                              style={{
+                                width: `${dailyPct}%`,
+                                backgroundColor: theme.hex,
+                                height: '8px',
+                                borderRadius: '4px',
+                                transition: 'width 0.3s ease'
+                              }}
+                            />
+                          ) : (
+                            <>
+                              <div
+                                style={{
+                                  width: `${(dailyAlloc / dailySp) * 100}%`,
+                                  backgroundColor: theme.hex,
+                                  height: '8px',
+                                  transition: 'width 0.3s ease'
+                                }}
+                              />
+                              <div
+                                style={{
+                                  width: `${((dailySp - dailyAlloc) / dailySp) * 100}%`,
+                                  backgroundColor: '#FF9500',
+                                  height: '8px',
+                                  transition: 'width 0.3s ease'
+                                }}
+                              />
+                            </>
+                          )}
                         </div>
                         
                       </div>
@@ -2845,7 +2879,11 @@ function Dashboard({ state, setState }) {
                           style={{
                             flex: 1,
                             height: '38px',
-                            background: (state.timer && state.timer.projectId === p.id) ? 'var(--red)' : theme.hex,
+                            background: (state.timer && state.timer.projectId === p.id) 
+                              ? 'var(--red)' 
+                              : (isDailyCompleted && state.timer === null) 
+                                ? '#FF9500' 
+                                : theme.hex,
                             color: '#FFFFFF',
                             border: 'none',
                             borderRadius: '980px',
@@ -2856,7 +2894,11 @@ function Dashboard({ state, setState }) {
                             alignItems: 'center',
                             justifyContent: 'center',
                             gap: '6px',
-                            boxShadow: (state.timer && state.timer.projectId === p.id) ? '0 2px 8px rgba(255, 69, 58, 0.25)' : `0 2px 6px ${theme.border}`,
+                            boxShadow: (state.timer && state.timer.projectId === p.id) 
+                              ? '0 2px 8px rgba(255, 69, 58, 0.25)' 
+                              : (isDailyCompleted && state.timer === null)
+                                ? '0 2px 6px rgba(255, 149, 0, 0.25)'
+                                : `0 2px 6px ${theme.border}`,
                             transition: 'all 0.2s',
                             opacity: (state.timer !== null && state.timer.projectId !== p.id) ? 0.5 : 1
                           }}
@@ -2864,8 +2906,10 @@ function Dashboard({ state, setState }) {
                           onMouseLeave={e => { if (state.timer === null || state.timer.projectId === p.id) e.currentTarget.style.opacity = 1 }}
                         >
                           {state.timer && state.timer.projectId === p.id
-                            ? `⏹️ Stop & Invest ($${Math.round((getTimerSeconds(state.timer) / 1800) * 50)}) [${Math.floor(getTimerSeconds(state.timer) / 60)}:${(getTimerSeconds(state.timer) % 60) < 10 ? '0' : ''}${getTimerSeconds(state.timer) % 60}]`
-                            : 'Start Focus'
+                            ? `⏹️ Stop & Invest ($${Math.round((getTimerSeconds(state.timer) / 1800) * 50)}) ${isDailyCompleted ? '(Borrowing) ' : ''}[${Math.floor(getTimerSeconds(state.timer) / 60)}:${(getTimerSeconds(state.timer) % 60) < 10 ? '0' : ''}${getTimerSeconds(state.timer) % 60}]`
+                            : isDailyCompleted 
+                              ? 'Borrow' 
+                              : 'Start Focus'
                           }
                         </button>
                         
