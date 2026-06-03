@@ -2862,6 +2862,60 @@ function Dashboard({ state, setState }) {
                             const isCurrentStopwatch = state.timer && state.timer.projectId === p.id;
                             if (isCurrentStopwatch) {
                               logStopwatchTime(p.id, getTimerSeconds(state.timer));
+                            } else if (isDailyCompleted) {
+                              // Borrow target logic: Shift target from another day
+                              const availableDays = DAYS.filter(d => d !== selectedDay && (p.dailyAllocations?.[d] ?? 0) >= 50)
+                              if (availableDays.length === 0) {
+                                alert(`No other days have scheduled budget for "${p.name}" to borrow from!`)
+                                return
+                              }
+                              const dayListStr = availableDays.map(d => `${d} ($${p.dailyAllocations[d]})`).join(', ')
+                              const chosenDay = prompt(`Which day would you like to borrow 30 minutes ($50) from for "${p.name}"?\nAvailable days: ${dayListStr}\n\nType the day (e.g., ${availableDays[0]}):`)
+                              if (!chosenDay) return // cancelled
+                              const normalizedDay = chosenDay.trim().substring(0, 3)
+                              const matchedDay = availableDays.find(d => d.toLowerCase() === normalizedDay.toLowerCase())
+                              if (!matchedDay) {
+                                alert(`Invalid day entered: "${chosenDay}". Please type one of: ${availableDays.join(', ')}`)
+                                return
+                              }
+
+                              setState(s => {
+                                const updatedProjects = s.projects.map(item => {
+                                  if (item.id === p.id) {
+                                    const currentAllocSelected = item.dailyAllocations?.[selectedDay] ?? 0
+                                    const currentAllocMatched = item.dailyAllocations?.[matchedDay] ?? 0
+                                    
+                                    const nextAllocations = {
+                                      ...item.dailyAllocations,
+                                      [selectedDay]: currentAllocSelected + 50,
+                                      [matchedDay]: Math.max(0, currentAllocMatched - 50)
+                                    }
+                                    const newWeeklyAlloc = Object.values(nextAllocations).reduce((a, b) => a + b, 0)
+                                    return {
+                                      ...item,
+                                      dailyAllocations: nextAllocations,
+                                      allocatedCash: newWeeklyAlloc
+                                    }
+                                  }
+                                  return item
+                                })
+
+                                const desc = `Borrowed 30m focus target for "${p.name}": shifted $50 from ${matchedDay} to ${selectedDay}`
+                                const entry = { ts: new Date().toLocaleTimeString(), desc, amt: 0, type: 'neutral' }
+
+                                return {
+                                  ...s,
+                                  projects: updatedProjects,
+                                  ledger: [entry, ...s.ledger],
+                                  timer: {
+                                    projectId: p.id,
+                                    seconds: 0,
+                                    running: true,
+                                    accumulatedSeconds: 0,
+                                    startTime: Date.now()
+                                  }
+                                }
+                              })
                             } else {
                               setState(s => ({
                                 ...s,
