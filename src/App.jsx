@@ -2130,11 +2130,17 @@ function TimetableTile({ state, setState, todayKeyName, selectedDay }) {
                     const key = `${d}_${h}`
                     const placedProjId = timetable[key]
                     const placedProj = projects.find(p => p.id === placedProjId)
+                    const displayProj = placedProj
 
-                    // Find if any project has logged focus time on day d that maps to this slot
-                    const workedProj = projects.find(p => (p.dailySpent?.[d] ?? 0) > 0)
-                    const displayProj = placedProj || (d === todayKeyName && workedProj ? workedProj : null)
-                    const isSpent = (displayProj?.dailySpent?.[d] ?? 0) > 0
+                    // Determine if this specific placed slot is marked as spent/worked
+                    let isSpent = false
+                    if (placedProj) {
+                      const placedHoursOnDay = hours.filter(hour => timetable[`${d}_${hour}`] === placedProj.id)
+                      const slotIdx = placedHoursOnDay.indexOf(h)
+                      const spentHours = (placedProj.dailySpent?.[d] ?? 0) / 100
+                      isSpent = slotIdx >= 0 && slotIdx < spentHours
+                    }
+
                     const cTheme = displayProj ? (COLORS[displayProj.color] || COLORS.blue) : null
 
                     return (
@@ -2172,7 +2178,7 @@ function TimetableTile({ state, setState, todayKeyName, selectedDay }) {
                           transition: 'all 0.15s',
                           position: 'relative'
                         }}
-                        title={placedProj ? `Click to remove ${placedProj.name}` : displayProj ? `Logged focus: ${displayProj.name}` : selectedBrush ? 'Click to place selected tile' : 'Drag tile here'}
+                        title={placedProj ? (isSpent ? `✓ Worked ${placedProj.name} (Click to remove)` : `Click to remove ${placedProj.name}`) : selectedBrush ? 'Click to place selected tile' : 'Drag tile here'}
                       >
                         {displayProj ? (
                           <div style={{ 
