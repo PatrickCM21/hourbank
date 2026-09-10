@@ -168,9 +168,19 @@ function migrateState(s) {
   }
 
   if (updated.projects) {
+    const LEGACY_NAME_MAP = {
+      'Computer Science': 'Red Herring',
+      'Arts & Reading': 'Admin Law',
+      'Gym & Fitness': 'Theories of Law',
+      'Side Project': 'Chinese'
+    }
     updated.projects = updated.projects.map(p => {
       let pChanged = false
       const newP = { ...p }
+      if (LEGACY_NAME_MAP[newP.name]) {
+        newP.name = LEGACY_NAME_MAP[newP.name]
+        pChanged = true
+      }
       if (!newP.dailyAllocations) {
         newP.dailyAllocations = distributeProjectWeeklyToDaily(newP.allocatedCash ?? 0)
         pChanged = true
@@ -555,10 +565,10 @@ function makeDefault() {
   const d = calcDisposable(9, 23, 3, 6, 0)
   const totalCash = d * 100
   const projects = distributeByPriority([
-    { id: 'p1', name: 'Computer Science', priority: 1, color: 'blue', allocatedCash: 0, spentCash: 0 },
-    { id: 'p2', name: 'Arts & Reading',   priority: 2, color: 'purple', allocatedCash: 0, spentCash: 0 },
-    { id: 'p3', name: 'Gym & Fitness',    priority: 3, color: 'pink', allocatedCash: 0, spentCash: 0 },
-    { id: 'p4', name: 'Side Project',     priority: 4, color: 'orange', allocatedCash: 0, spentCash: 0 },
+    { id: 'p1', name: 'Red Herring',     priority: 1, color: 'blue',   allocatedCash: 0, spentCash: 0 },
+    { id: 'p2', name: 'Admin Law',       priority: 2, color: 'purple', allocatedCash: 0, spentCash: 0 },
+    { id: 'p3', name: 'Theories of Law', priority: 3, color: 'pink',   allocatedCash: 0, spentCash: 0 },
+    { id: 'p4', name: 'Chinese',         priority: 4, color: 'orange', allocatedCash: 0, spentCash: 0 },
   ], totalCash)
   const dailyCash = defaultDailyCash(totalCash)
   const wakeHours = { Mon: 9, Tue: 9, Wed: 9, Thu: 9, Fri: 9, Sat: 9, Sun: 9 }
@@ -3004,115 +3014,235 @@ function Dashboard({ state, setState }) {
         </div>
       
 
-          {/* Focus Debt & Statistics Ledger */}
-          <div className="surface" style={{ padding: '1.5rem', border: '1.5px solid rgba(255, 69, 58, 0.15)', background: 'linear-gradient(180deg, rgba(255, 69, 58, 0.06) 0%, rgba(255, 69, 58, 0.02) 100%)', backdropFilter: 'blur(10px)' }}>
+          {/* Weekly Timetable Tile (Schedule View) */}
+          <div className="surface" style={{ 
+            padding: '1.5rem', 
+            border: '1px solid var(--border)', 
+            background: 'rgba(255, 255, 255, 0.85)', 
+            backdropFilter: 'blur(10px)',
+            boxShadow: 'var(--shadow-sm)'
+          }}>
             <div className="section-header" style={{ marginBottom: '1.25rem' }}>
-              <span className="section-title">
-                <Sliders size={16} style={{ verticalAlign: 'middle', marginRight: 6, color: 'var(--red)' }} />
-                Non-Investment
+              <span className="section-title" style={{ fontSize: '16px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Clock size={18} style={{ color: 'var(--accent)' }} /> 
+                Timetable (Weekly Schedule View)
               </span>
-              <span style={{ fontSize: '12px', fontWeight: '500', color: 'var(--text-3)' }}>Real-time Audit Ledger</span>
+              <span style={{ fontSize: '12px', fontWeight: '500', color: 'var(--text-3)' }}>
+                Distribute your focus budget across the week
+              </span>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <div style={{ fontSize: '10px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-3)', marginBottom: '2px' }}>
-                Project Balances (up to {selectedDay})
-              </div>
-              
-              {projects.map(p => {
-                const pBudgetBeforeToday = daysBeforeSelected.reduce((sum, d) => sum + (p.dailyAllocations?.[d] ?? 0), 0)
-                const pSpentSoFar = daysUpToSelected.reduce((sum, d) => sum + (p.dailySpent?.[d] ?? 0), 0)
-                const variance = pSpentSoFar - pBudgetBeforeToday
-                const isDebt = variance < 0
-                const isSurplus = variance > 0
-                const cTheme = COLORS[p.color] || COLORS.blue
-                const pct = pBudgetBeforeToday > 0 ? Math.min(100, Math.round((pSpentSoFar / pBudgetBeforeToday) * 100)) : 0
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: '6px', fontSize: '12px' }}>
+                <thead>
+                  <tr>
+                    <th style={{ textAlign: 'left', padding: '6px 10px', color: 'var(--text-3)', fontWeight: '700', fontSize: '11px', textTransform: 'uppercase', width: '150px' }}>
+                      Project
+                    </th>
+                    {DAYS.map(d => {
+                      const isToday = d === todayKeyName
+                      const isSel = d === selectedDay
+                      return (
+                        <th key={d} style={{ 
+                          textAlign: 'center', 
+                          padding: '6px 4px', 
+                          color: isToday ? 'var(--accent)' : 'var(--text-2)', 
+                          fontWeight: isToday || isSel ? '700' : '600', 
+                          fontSize: '11px',
+                          background: isSel ? 'rgba(0, 113, 227, 0.08)' : 'transparent',
+                          borderRadius: '6px'
+                        }}>
+                          {d} {isToday && '•'}
+                        </th>
+                      )
+                    })}
+                    <th style={{ textAlign: 'center', padding: '6px 8px', color: 'var(--text-3)', fontWeight: '700', fontSize: '11px', textTransform: 'uppercase', width: '90px' }}>
+                      Weekly
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {projects.map(p => {
+                    const cTheme = COLORS[p.color] || COLORS.blue
+                    const weeklyAllocated = Object.values(p.dailyAllocations || {}).reduce((a, b) => a + b, 0)
+                    const weeklySpent = Object.values(p.dailySpent || {}).reduce((a, b) => a + b, 0)
+                    
+                    return (
+                      <tr key={p.id}>
+                        {/* Project Title */}
+                        <td style={{ 
+                          background: 'var(--surface-2)', 
+                          padding: '8px 10px', 
+                          borderRadius: 'var(--r-sm)',
+                          border: '1px solid var(--border)'
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '600', color: 'var(--text-1)' }}>
+                            <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: cTheme.hex, display: 'inline-block', flexShrink: 0 }} />
+                            <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '120px' }}>{p.name}</span>
+                          </div>
+                        </td>
 
-                return (
-                  <div key={p.id} style={{ 
-                    background: 'var(--surface-2)', 
-                    border: '1px solid var(--border)', 
-                    borderRadius: 'var(--r-sm)', 
-                    padding: '8px 12px',
-                    display: 'grid',
-                    gridTemplateColumns: '1.4fr 1fr 1fr',
-                    alignItems: 'center',
-                    gap: '8px'
-                  }}>
-                    {/* Project Title */}
-                    <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '600', fontSize: '12px', color: 'var(--text-1)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: cTheme.hex, display: 'inline-block' }} />
-                        {p.name}
-                      </div>
-                    </div>
+                        {/* Day Columns */}
+                        {DAYS.map(d => {
+                          const dayAlloc = p.dailyAllocations?.[d] ?? 0
+                          const daySpent = p.dailySpent?.[d] ?? 0
+                          const allocHours = (dayAlloc / 100).toFixed(1)
+                          const spentHours = (daySpent / 100).toFixed(1)
+                          const isSelected = d === selectedDay
+                          const hasAlloc = dayAlloc > 0
 
-                    {/* Variance */}
-                    <div>
-                      {isDebt ? (
-                        <span style={{ fontSize: '12px', fontWeight: '700', color: 'var(--red)' }}>
-                          🚨 −${Math.abs(variance)}
-                        </span>
-                      ) : isSurplus ? (
-                        <span style={{ fontSize: '12px', fontWeight: '700', color: '#1A7A33' }}>
-                          ⚡ +${variance}
-                        </span>
-                      ) : (
-                        <span style={{ fontSize: '12px', fontWeight: '700', color: 'var(--accent)' }}>
-                          ✓ Balanced
-                        </span>
-                      )}
-                    </div>
+                          return (
+                            <td key={d} style={{ 
+                              background: hasAlloc ? cTheme.bg : 'var(--surface-2)', 
+                              border: isSelected ? `1.5px solid ${cTheme.hex}` : hasAlloc ? `1px solid ${cTheme.border}` : '1px solid var(--border)', 
+                              borderRadius: 'var(--r-sm)',
+                              padding: '6px 4px',
+                              textAlign: 'center',
+                              transition: 'all 0.15s'
+                            }}>
+                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
+                                <span style={{ fontWeight: '700', fontSize: '12px', color: hasAlloc ? cTheme.hex : 'var(--text-3)' }}>
+                                  {allocHours}h
+                                </span>
 
-                    {/* Actions */}
-                    <div style={{ textAlign: 'right' }}>
-                      <button 
-                        onClick={() => payDownDebt(p.id)}
-                        style={{
-                          width: '100%',
-                          height: '26px',
-                          borderRadius: '980px',
-                          background: isDebt ? 'linear-gradient(135deg, var(--red) 0%, #E03E3E 100%)' : 'var(--surface)',
-                          border: isDebt ? 'none' : '1px solid var(--border-strong)',
-                          color: isDebt ? '#FFFFFF' : 'var(--text-1)',
-                          fontSize: '10px',
-                          fontWeight: '700',
-                          cursor: 'pointer',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: '2px',
-                          boxShadow: isDebt ? '0 1px 4px rgba(239,68,68,0.15)' : 'none',
-                          transition: 'all 0.2s'
-                        }}
-                        onMouseEnter={e => {
-                          if (isDebt) {
-                            e.currentTarget.style.opacity = '0.9'
-                            e.currentTarget.style.transform = 'translateY(-0.5px)'
-                          } else {
-                            e.currentTarget.style.background = cTheme.bg
-                            e.currentTarget.style.borderColor = cTheme.hex
-                            e.currentTarget.style.color = cTheme.hex
-                          }
-                        }}
-                        onMouseLeave={e => {
-                          if (isDebt) {
-                            e.currentTarget.style.opacity = '1'
-                            e.currentTarget.style.transform = 'none'
-                          } else {
-                            e.currentTarget.style.background = 'var(--surface)'
-                            e.currentTarget.style.borderColor = 'var(--border-strong)'
-                            e.currentTarget.style.color = 'var(--text-1)'
-                          }
-                        }}
-                        title={isDebt ? 'Log 30m focus to pay down this project\'s time debt!' : 'Overpay focus (+30m) to boost this project beyond budget!'}
-                      >
-                        {isDebt ? '⚡ Pay Down' : '➕ Overpay'}
-                      </button>
-                    </div>
-                  </div>
-                )
-              })}
+                                {/* Quick Adjust Buttons (+/- 0.5h) */}
+                                <div style={{ display: 'flex', gap: '3px', marginTop: '2px' }}>
+                                  <button
+                                    onClick={() => {
+                                      setState(s => {
+                                        const updatedProjects = s.projects.map(item => {
+                                          if (item.id === p.id) {
+                                            const cur = item.dailyAllocations?.[d] ?? 0
+                                            const newAlloc = Math.max(0, cur - 50)
+                                            const nextAllocations = { ...item.dailyAllocations, [d]: newAlloc }
+                                            const newWeeklyAlloc = Object.values(nextAllocations).reduce((a, b) => a + b, 0)
+                                            return { ...item, dailyAllocations: nextAllocations, allocatedCash: newWeeklyAlloc }
+                                          }
+                                          return item
+                                        })
+                                        return { ...s, projects: updatedProjects }
+                                      })
+                                    }}
+                                    style={{
+                                      width: '18px',
+                                      height: '18px',
+                                      borderRadius: '4px',
+                                      border: '1px solid var(--border-strong)',
+                                      background: 'var(--surface)',
+                                      color: 'var(--text-2)',
+                                      fontSize: '11px',
+                                      fontWeight: '700',
+                                      cursor: 'pointer',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      padding: 0
+                                    }}
+                                    title="Decrease allocation by 0.5h"
+                                  >
+                                    -
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      setState(s => {
+                                        const updatedProjects = s.projects.map(item => {
+                                          if (item.id === p.id) {
+                                            const cur = item.dailyAllocations?.[d] ?? 0
+                                            const newAlloc = cur + 50
+                                            const nextAllocations = { ...item.dailyAllocations, [d]: newAlloc }
+                                            const newWeeklyAlloc = Object.values(nextAllocations).reduce((a, b) => a + b, 0)
+                                            return { ...item, dailyAllocations: nextAllocations, allocatedCash: newWeeklyAlloc }
+                                          }
+                                          return item
+                                        })
+                                        return { ...s, projects: updatedProjects }
+                                      })
+                                    }}
+                                    style={{
+                                      width: '18px',
+                                      height: '18px',
+                                      borderRadius: '4px',
+                                      border: '1px solid var(--border-strong)',
+                                      background: 'var(--surface)',
+                                      color: 'var(--text-2)',
+                                      fontSize: '11px',
+                                      fontWeight: '700',
+                                      cursor: 'pointer',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      padding: 0
+                                    }}
+                                    title="Increase allocation by 0.5h"
+                                  >
+                                    +
+                                  </button>
+                                </div>
+
+                                {daySpent > 0 && (
+                                  <span style={{ fontSize: '9px', color: '#1A7A33', fontWeight: '700', marginTop: '2px' }}>
+                                    ✓ {spentHours}h
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                          )
+                        })}
+
+                        {/* Weekly Project Total */}
+                        <td style={{ 
+                          background: 'var(--surface-2)', 
+                          padding: '8px 6px', 
+                          borderRadius: 'var(--r-sm)',
+                          border: '1px solid var(--border)',
+                          textAlign: 'center'
+                        }}>
+                          <div style={{ fontWeight: '700', fontSize: '12px', color: 'var(--text-1)' }}>
+                            {(weeklyAllocated / 100).toFixed(1)}h
+                          </div>
+                          <div style={{ fontSize: '10px', color: 'var(--text-3)' }}>
+                            {(weeklySpent / 100).toFixed(1)}h done
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+
+                {/* Table Footer: Daily Totals across all projects */}
+                <tfoot>
+                  <tr>
+                    <td style={{ padding: '8px 10px', fontWeight: '700', fontSize: '11px', color: 'var(--text-2)' }}>
+                      Daily Total
+                    </td>
+                    {DAYS.map(d => {
+                      const dayTotalAlloc = projects.reduce((sum, pr) => sum + (pr.dailyAllocations?.[d] ?? 0), 0)
+                      const dayTotalSpent = projects.reduce((sum, pr) => sum + (pr.dailySpent?.[d] ?? 0), 0)
+                      const isToday = d === todayKeyName
+                      return (
+                        <td key={d} style={{ 
+                          textAlign: 'center', 
+                          padding: '6px 4px', 
+                          background: isToday ? 'rgba(0, 113, 227, 0.05)' : 'transparent',
+                          borderRadius: '6px'
+                        }}>
+                          <div style={{ fontWeight: '700', fontSize: '11px', color: isToday ? 'var(--accent)' : 'var(--text-1)' }}>
+                            {(dayTotalAlloc / 100).toFixed(1)}h
+                          </div>
+                          {dayTotalSpent > 0 && (
+                            <div style={{ fontSize: '9px', color: 'var(--text-3)' }}>
+                              {(dayTotalSpent / 100).toFixed(1)}h
+                            </div>
+                          )}
+                        </td>
+                      )
+                    })}
+                    <td style={{ textAlign: 'center', padding: '6px 8px', fontWeight: '700', fontSize: '11px', color: 'var(--text-1)' }}>
+                      {(projects.reduce((sum, pr) => sum + Object.values(pr.dailyAllocations || {}).reduce((a, b) => a + b, 0), 0) / 100).toFixed(1)}h
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
             </div>
           </div>
       </div>
