@@ -1918,12 +1918,12 @@ function TimetableTile({ state, setState, todayKeyName, selectedDay }) {
       const curTimetable = s.timetable || {}
       const nextTimetable = { ...curTimetable, [key]: projId }
 
-      // Sync project daily allocations with scheduled slots (without shrinking weekly allocatedCash)
       const updatedProjects = s.projects.map(p => {
+        const defaultDailyMap = distributeProjectWeeklyToDaily(p.allocatedCash ?? 1400)
         const newDailyAllocations = { ...p.dailyAllocations }
         DAYS.forEach(d => {
           const countOnDay = Object.entries(nextTimetable).filter(([k, v]) => k.startsWith(`${d}_`) && v === p.id).length
-          newDailyAllocations[d] = countOnDay * 100
+          newDailyAllocations[d] = countOnDay > 0 ? countOnDay * 100 : (defaultDailyMap[d] ?? 200)
         })
         return {
           ...p,
@@ -1946,10 +1946,11 @@ function TimetableTile({ state, setState, todayKeyName, selectedDay }) {
       delete curTimetable[key]
 
       const updatedProjects = s.projects.map(p => {
+        const defaultDailyMap = distributeProjectWeeklyToDaily(p.allocatedCash ?? 1400)
         const newDailyAllocations = { ...p.dailyAllocations }
         DAYS.forEach(d => {
           const countOnDay = Object.entries(curTimetable).filter(([k, v]) => k.startsWith(`${d}_`) && v === p.id).length
-          newDailyAllocations[d] = countOnDay * 100
+          newDailyAllocations[d] = countOnDay > 0 ? countOnDay * 100 : (defaultDailyMap[d] ?? 200)
         })
         return {
           ...p,
@@ -1977,15 +1978,15 @@ function TimetableTile({ state, setState, todayKeyName, selectedDay }) {
       <div className="section-header" style={{ marginBottom: '1.25rem' }}>
         <span className="section-title" style={{ fontSize: '16px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '6px' }}>
           <Clock size={18} style={{ color: 'var(--accent)' }} /> 
-          Timetable (Weekly Schedule View)
+          Timetable (Weekly Schedule & History View)
         </span>
         <span style={{ fontSize: '12px', fontWeight: '500', color: 'var(--text-3)' }}>
-          Drag or click project hour tiles to build your weekly schedule
+          Drag project tiles to plan your schedule & track your logged focus investments
         </span>
       </div>
 
       {/* Main Container: Left Palette Bank + Right Empty Weekly Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: '220px 1fr', gap: '1.25rem', alignItems: 'start' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '230px 1fr', gap: '1.25rem', alignItems: 'start' }}>
         
         {/* Left Side: Unscheduled Hour Tiles Palette Bank */}
         <div style={{ 
@@ -2008,6 +2009,7 @@ function TimetableTile({ state, setState, todayKeyName, selectedDay }) {
             const availableCount = Math.max(0, weeklyAllocatedHours - placedCount)
             const isSelected = selectedBrush === p.id
             const isDepleted = availableCount === 0
+            const spentWeeklyHours = ((p.spentCash ?? 0) / 100).toFixed(1)
 
             return (
               <div key={p.id} style={{ 
@@ -2017,7 +2019,7 @@ function TimetableTile({ state, setState, todayKeyName, selectedDay }) {
                 padding: '10px',
                 transition: 'all 0.15s'
               }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '600', fontSize: '12px', color: 'var(--text-1)' }}>
                     <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: cTheme.hex }} />
                     <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100px' }}>{p.name}</span>
@@ -2026,6 +2028,12 @@ function TimetableTile({ state, setState, todayKeyName, selectedDay }) {
                     {availableCount} left
                   </span>
                 </div>
+
+                {parseFloat(spentWeeklyHours) > 0 && (
+                  <div style={{ fontSize: '9px', fontWeight: '700', color: '#1A7A33', marginBottom: '6px' }}>
+                    ✓ {spentWeeklyHours}h logged this week
+                  </div>
+                )}
 
                 {/* Draggable Tile Pill / Touch Button */}
                 {!isDepleted ? (
@@ -2065,7 +2073,7 @@ function TimetableTile({ state, setState, todayKeyName, selectedDay }) {
           })}
         </div>
 
-        {/* Right Side: Empty Weekly Schedule Grid */}
+        {/* Right Side: Weekly Schedule & Investment History Grid */}
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: '4px', fontSize: '11px' }}>
             <thead>
@@ -2076,6 +2084,7 @@ function TimetableTile({ state, setState, todayKeyName, selectedDay }) {
                 {DAYS.map(d => {
                   const isToday = d === todayKeyName
                   const isSel = d === selectedDay
+                  const dayTotalSpent = projects.reduce((sum, p) => sum + (p.dailySpent?.[d] ?? 0), 0)
                   return (
                     <th key={d} style={{ 
                       textAlign: 'center', 
@@ -2085,7 +2094,12 @@ function TimetableTile({ state, setState, todayKeyName, selectedDay }) {
                       background: isSel ? 'rgba(0, 113, 227, 0.08)' : 'transparent',
                       borderRadius: '6px'
                     }}>
-                      {d} {isToday && '•'}
+                      <div>{d} {isToday && '•'}</div>
+                      {dayTotalSpent > 0 && (
+                        <div style={{ fontSize: '9px', color: '#1A7A33', fontWeight: '700' }}>
+                          ✓ {(dayTotalSpent / 100).toFixed(1)}h
+                        </div>
+                      )}
                     </th>
                   )
                 })}
@@ -2112,7 +2126,12 @@ function TimetableTile({ state, setState, todayKeyName, selectedDay }) {
                     const key = `${d}_${h}`
                     const placedProjId = timetable[key]
                     const placedProj = projects.find(p => p.id === placedProjId)
-                    const cTheme = placedProj ? (COLORS[placedProj.color] || COLORS.blue) : null
+
+                    // Find if any project has logged focus time on day d that maps to this slot
+                    const workedProj = projects.find(p => (p.dailySpent?.[d] ?? 0) > 0)
+                    const displayProj = placedProj || (d === todayKeyName && workedProj ? workedProj : null)
+                    const isSpent = (displayProj?.dailySpent?.[d] ?? 0) > 0
+                    const cTheme = displayProj ? (COLORS[displayProj.color] || COLORS.blue) : null
 
                     return (
                       <td 
@@ -2127,10 +2146,8 @@ function TimetableTile({ state, setState, todayKeyName, selectedDay }) {
                         }}
                         onClick={() => {
                           if (placedProjId) {
-                            // If cell is already occupied, remove it
                             handleRemoveTile(d, h)
                           } else if (selectedBrush) {
-                            // If brush is selected and cell is empty, place tile
                             const proj = projects.find(p => p.id === selectedBrush)
                             const weeklyAllocatedHours = Math.max(1, Math.round((proj?.allocatedCash ?? 0) / 100))
                             const availableCount = Math.max(0, weeklyAllocatedHours - getPlacedCount(selectedBrush))
@@ -2141,48 +2158,50 @@ function TimetableTile({ state, setState, todayKeyName, selectedDay }) {
                         }}
                         style={{
                           height: '36px',
-                          background: placedProj ? cTheme.bg : 'var(--surface-2)',
-                          border: placedProj ? `1.5px solid ${cTheme.hex}` : '1px dashed var(--border)',
+                          background: displayProj ? (isSpent ? 'rgba(52, 199, 89, 0.08)' : cTheme.bg) : 'var(--surface-2)',
+                          border: displayProj ? (isSpent ? '1.5px solid #34C759' : `1.5px solid ${cTheme.hex}`) : '1px dashed var(--border)',
                           borderRadius: '6px',
                           padding: '2px 4px',
                           textAlign: 'center',
                           verticalAlign: 'middle',
-                          cursor: placedProj ? 'pointer' : selectedBrush ? 'pointer' : 'default',
+                          cursor: displayProj ? 'pointer' : selectedBrush ? 'pointer' : 'default',
                           transition: 'all 0.15s',
                           position: 'relative'
                         }}
-                        title={placedProj ? `Click to remove ${placedProj.name}` : selectedBrush ? 'Click to place selected tile' : 'Drag tile here'}
+                        title={placedProj ? `Click to remove ${placedProj.name}` : displayProj ? `Logged focus: ${displayProj.name}` : selectedBrush ? 'Click to place selected tile' : 'Drag tile here'}
                       >
-                        {placedProj ? (
+                        {displayProj ? (
                           <div style={{ 
                             display: 'flex', 
                             alignItems: 'center', 
                             justifyContent: 'space-between', 
                             width: '100%', 
                             height: '100%',
-                            color: cTheme.hex,
+                            color: isSpent ? '#1A7A33' : cTheme.hex,
                             fontWeight: '700',
                             fontSize: '10px',
                             padding: '0 4px'
                           }}>
                             <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '60px' }}>
-                              {placedProj.name}
+                              {isSpent ? `✓ ${displayProj.name}` : displayProj.name}
                             </span>
-                            <span 
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                handleRemoveTile(d, h)
-                              }}
-                              style={{ 
-                                cursor: 'pointer', 
-                                fontSize: '12px', 
-                                opacity: 0.75, 
-                                marginLeft: '2px' 
-                              }}
-                              title="Remove slot"
-                            >
-                              ×
-                            </span>
+                            {placedProjId && (
+                              <span 
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleRemoveTile(d, h)
+                                }}
+                                style={{ 
+                                  cursor: 'pointer', 
+                                  fontSize: '12px', 
+                                  opacity: 0.75, 
+                                  marginLeft: '2px' 
+                                }}
+                                title="Remove slot"
+                              >
+                                ×
+                              </span>
+                            )}
                           </div>
                         ) : null}
                       </td>
@@ -2762,14 +2781,15 @@ function Dashboard({ state, setState }) {
             ? <div className="deck-empty">No projects active. Open Settings to add some!</div>
             : <div className="cards-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '16px' }}>
                 {projects.map(p => {
-                  const theme = COLORS[p.color] ?? COLORS.blue
-                  const baseDailyAlloc = p.dailyAllocations?.[selectedDay] ?? 0
+                  const defaultDailyMap = distributeProjectWeeklyToDaily(p.allocatedCash ?? 1400)
+                  const rawAlloc = p.dailyAllocations?.[selectedDay]
+                  const baseDailyAlloc = (rawAlloc !== undefined && rawAlloc > 0) ? rawAlloc : (defaultDailyMap[selectedDay] ?? 200)
                   const isPastSelectedDay = DAYS.indexOf(selectedDay) < todayIdx
                   const cardMultiplier = isPastSelectedDay ? 1.0 : cycleMultiplier
                   const dailyAlloc = baseDailyAlloc * cardMultiplier
                   const dailySp = p.dailySpent?.[selectedDay] ?? 0
                   const dailyRem = Math.max(0, dailyAlloc - dailySp)
-                  const isDeactivated = baseDailyAlloc === 0
+                  const isDeactivated = false
                   
                   // Weekly metrics for summary
                   const weeklyAlloc = p.allocatedCash ?? 0
