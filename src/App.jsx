@@ -2796,6 +2796,7 @@ function Dashboard({ state, setState }) {
             ? <div className="deck-empty">No projects active. Open Settings to add some!</div>
             : <div className="cards-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '16px' }}>
                 {projects.map(p => {
+                  const theme = COLORS[p.color] ?? COLORS.blue;
                   const defaultDailyMap = distributeProjectWeeklyToDaily(p.allocatedCash ?? 1400)
                   const rawAlloc = p.dailyAllocations?.[selectedDay]
                   const baseDailyAlloc = (rawAlloc !== undefined && rawAlloc > 0) ? rawAlloc : (defaultDailyMap[selectedDay] ?? 200)
