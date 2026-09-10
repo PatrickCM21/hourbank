@@ -214,6 +214,10 @@ function migrateState(s) {
     updated.reportOpen = false
     migrated = true
   }
+  if (updated.done === undefined || updated.done === false) {
+    updated.done = true
+    migrated = true
+  }
   if (!updated.timetable) {
     updated.timetable = {}
     migrated = true
