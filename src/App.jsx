@@ -1886,55 +1886,165 @@ function FlowingTimeCity({ overdrafted, dayBudget, daySpent }) {
 
 
 /* ─────────────────────────────────────────────────────
-   Weekly Non-Investments (Focus Target Lacking) Tile Component
+   Non-Investments Tile Component (Light Red Theme)
    ───────────────────────────────────────────────────── */
 function WeeklyNonInvestmentsTile({ state }) {
+  const [startDay, setStartDay] = useState('Mon')
+  const [endDay, setEndDay] = useState('Sun')
+
   const { projects = [] } = state
 
-  // Calculate totals across all focus projects
-  const totalAllocated = projects.reduce((sum, p) => sum + (p.allocatedCash ?? 0), 0)
-  const totalSpent = projects.reduce((sum, p) => sum + (p.spentCash ?? 0), 0)
-  const totalLacking = Math.max(0, totalAllocated - totalSpent)
+  const startIdx = DAYS.indexOf(startDay)
+  const endIdx = Math.max(startIdx, DAYS.indexOf(endDay))
+  const includedDays = DAYS.slice(startIdx, endIdx + 1)
 
+  // Calculate allocations & spent cash for included days across projects
+  let totalAllocated = 0
+  let totalSpent = 0
+
+  const projectStats = projects.map(p => {
+    const defaultDailyMap = distributeProjectWeeklyToDaily(p.allocatedCash ?? 1400)
+    
+    // Calculate target allocation for included range
+    const allocCash = includedDays.reduce((sum, d) => {
+      const rawAlloc = p.dailyAllocations?.[d]
+      const dailyAlloc = (rawAlloc !== undefined && rawAlloc > 0) ? rawAlloc : (defaultDailyMap[d] ?? 200)
+      return sum + dailyAlloc
+    }, 0)
+
+    // Calculate spent cash for included range
+    const spentCash = includedDays.reduce((sum, d) => sum + (p.dailySpent?.[d] ?? 0), 0)
+
+    const lackingCash = Math.max(0, allocCash - spentCash)
+
+    totalAllocated += allocCash
+    totalSpent += spentCash
+
+    return {
+      p,
+      allocCash,
+      spentCash,
+      lackingCash,
+      allocHours: (allocCash / 100).toFixed(1),
+      spentHours: (spentCash / 100).toFixed(1),
+      lackingHours: (lackingCash / 100).toFixed(1),
+      pctInvested: allocCash > 0 ? Math.min(100, Math.round((spentCash / allocCash) * 100)) : 0,
+      isFulfilled: lackingCash === 0 && allocCash > 0
+    }
+  })
+
+  const totalLacking = Math.max(0, totalAllocated - totalSpent)
   const totalAllocatedHours = (totalAllocated / 100).toFixed(1)
   const totalSpentHours = (totalSpent / 100).toFixed(1)
   const totalLackingHours = (totalLacking / 100).toFixed(1)
 
+  const rangeLabel = startDay === endDay ? startDay : `${startDay} – ${endDay}`
+
   return (
     <div className="surface" style={{ 
       padding: '1.5rem', 
-      border: '1px solid var(--border)', 
-      background: 'rgba(255, 255, 255, 0.85)', 
+      border: '1.5px solid rgba(239, 68, 68, 0.3)', 
+      background: 'linear-gradient(135deg, rgba(254, 242, 242, 0.95) 0%, rgba(255, 245, 245, 0.9) 100%)', 
       backdropFilter: 'blur(10px)',
-      boxShadow: 'var(--shadow-sm)',
+      boxShadow: '0 4px 20px rgba(239, 68, 68, 0.08)',
+      borderRadius: 'var(--r)',
       marginBottom: '1.5rem'
     }}>
       {/* Header */}
-      <div className="section-header" style={{ marginBottom: '1.25rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '10px' }}>
+      <div className="section-header" style={{ marginBottom: '1.25rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
         <div>
-          <span className="section-title" style={{ fontSize: '16px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <BarChart3 size={18} style={{ color: '#D97706' }} />
-            Weekly Non-Investments (Focus Target Lacking)
+          <span className="section-title" style={{ fontSize: '17px', fontWeight: '800', color: '#991B1B', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <BarChart3 size={20} style={{ color: '#DC2626' }} />
+            Non-Investments
           </span>
-          <span style={{ fontSize: '12px', fontWeight: '500', color: 'var(--text-3)', display: 'block', marginTop: '2px' }}>
-            Weekly summary of target focus hours remaining / lacking for each project (independent of daily schedule)
+          <span style={{ fontSize: '12px', fontWeight: '600', color: '#B91C1C', opacity: 0.85, display: 'block', marginTop: '2px' }}>
+            Tracking non-invested hours for {rangeLabel} ({includedDays.length} {includedDays.length === 1 ? 'day' : 'days'})
           </span>
         </div>
         
-        {/* Total Summary Badge */}
-        <div style={{ textAlign: 'right', background: 'var(--surface-2)', padding: '6px 12px', borderRadius: 'var(--r-sm)', border: '1px solid var(--border)' }}>
-          <div style={{ fontSize: '10px', fontWeight: '700', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            Total Weekly Deficit
+        {/* Day Selector & Total Deficit */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+          {/* Day Range Selectors */}
+          <div style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '6px', 
+            background: 'rgba(255, 255, 255, 0.85)', 
+            padding: '4px 10px', 
+            borderRadius: 'var(--r-sm)', 
+            border: '1px solid rgba(239, 68, 68, 0.2)',
+            fontSize: '11px',
+            fontWeight: '700',
+            color: '#7F1D1D'
+          }}>
+            <span>Track From:</span>
+            <select 
+              value={startDay} 
+              onChange={(e) => {
+                const newStart = e.target.value
+                setStartDay(newStart)
+                if (DAYS.indexOf(newStart) > DAYS.indexOf(endDay)) {
+                  setEndDay(newStart)
+                }
+              }}
+              style={{
+                background: '#FFFFFF',
+                border: '1px solid rgba(239, 68, 68, 0.3)',
+                borderRadius: '4px',
+                padding: '2px 6px',
+                fontSize: '11px',
+                fontWeight: '700',
+                color: '#991B1B',
+                cursor: 'pointer'
+              }}
+            >
+              {DAYS.map(d => (
+                <option key={d} value={d}>{d}</option>
+              ))}
+            </select>
+
+            <span>To:</span>
+            <select 
+              value={endDay} 
+              onChange={(e) => {
+                const newEnd = e.target.value
+                setEndDay(newEnd)
+                if (DAYS.indexOf(newEnd) < DAYS.indexOf(startDay)) {
+                  setStartDay(newEnd)
+                }
+              }}
+              style={{
+                background: '#FFFFFF',
+                border: '1px solid rgba(239, 68, 68, 0.3)',
+                borderRadius: '4px',
+                padding: '2px 6px',
+                fontSize: '11px',
+                fontWeight: '700',
+                color: '#991B1B',
+                cursor: 'pointer'
+              }}
+            >
+              {DAYS.map(d => (
+                <option key={d} value={d}>{d}</option>
+              ))}
+            </select>
           </div>
-          <div style={{ fontSize: '16px', fontWeight: '800', color: totalLacking > 0 ? '#D97706' : '#166534' }}>
-            {totalLackingHours}h <span style={{ fontSize: '11px', fontWeight: '600', color: 'var(--text-3)' }}>lacking</span>
+
+          {/* Total Summary Badge */}
+          <div style={{ textAlign: 'right', background: 'rgba(255, 255, 255, 0.85)', padding: '6px 12px', borderRadius: 'var(--r-sm)', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
+            <div style={{ fontSize: '10px', fontWeight: '700', color: '#991B1B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Non-Investment ({rangeLabel})
+            </div>
+            <div style={{ fontSize: '16px', fontWeight: '800', color: totalLacking > 0 ? '#DC2626' : '#166534' }}>
+              {totalLackingHours}h <span style={{ fontSize: '11px', fontWeight: '600', color: '#7F1D1D' }}>lacking</span>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Grid of Focus Projects & their Lacking Investment */}
       {projects.length === 0 ? (
-        <div style={{ fontSize: '13px', color: 'var(--text-3)', fontStyle: 'italic', padding: '1rem 0' }}>
+        <div style={{ fontSize: '13px', color: '#991B1B', fontStyle: 'italic', padding: '1rem 0' }}>
           No focus projects active.
         </div>
       ) : (
@@ -1943,29 +2053,19 @@ function WeeklyNonInvestmentsTile({ state }) {
           gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))', 
           gap: '12px' 
         }}>
-          {projects.map(p => {
+          {projectStats.map(({ p, allocCash, spentCash, lackingCash, allocHours, spentHours, lackingHours, pctInvested, isFulfilled }) => {
             const cTheme = COLORS[p.color] || COLORS.blue
-            const allocCash = p.allocatedCash ?? 0
-            const spentCash = p.spentCash ?? 0
-            const lackingCash = Math.max(0, allocCash - spentCash)
-            
-            const allocHours = (allocCash / 100).toFixed(1)
-            const spentHours = (spentCash / 100).toFixed(1)
-            const lackingHours = (lackingCash / 100).toFixed(1)
-
-            const pctInvested = allocCash > 0 ? Math.min(100, Math.round((spentCash / allocCash) * 100)) : 0
-            const isFulfilled = lackingCash === 0 && allocCash > 0
 
             return (
               <div key={p.id} style={{ 
-                background: 'var(--surface)', 
-                border: isFulfilled ? '1.5px solid rgba(34, 197, 94, 0.4)' : '1px solid var(--border)',
+                background: 'rgba(255, 255, 255, 0.85)', 
+                border: isFulfilled ? '1.5px solid rgba(34, 197, 94, 0.5)' : '1.5px solid rgba(239, 68, 68, 0.25)',
                 borderRadius: 'var(--r-md)',
                 padding: '12px 14px',
                 display: 'flex',
                 flexDirection: 'column',
                 gap: '10px',
-                boxShadow: 'var(--shadow-xs)'
+                boxShadow: '0 2px 8px rgba(239, 68, 68, 0.05)'
               }}>
                 {/* Card Top Row: Project Name & Lacking Badge */}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
@@ -1978,25 +2078,25 @@ function WeeklyNonInvestmentsTile({ state }) {
                     fontWeight: '800', 
                     padding: '2px 8px', 
                     borderRadius: '999px',
-                    background: isFulfilled ? 'rgba(34, 197, 94, 0.12)' : 'rgba(217, 119, 6, 0.12)',
-                    color: isFulfilled ? '#15803D' : '#B45309',
-                    border: isFulfilled ? '1px solid rgba(34, 197, 94, 0.3)' : '1px solid rgba(217, 119, 6, 0.3)',
+                    background: isFulfilled ? 'rgba(34, 197, 94, 0.12)' : 'rgba(239, 68, 68, 0.12)',
+                    color: isFulfilled ? '#15803D' : '#DC2626',
+                    border: isFulfilled ? '1px solid rgba(34, 197, 94, 0.3)' : '1px solid rgba(239, 68, 68, 0.3)',
                     flexShrink: 0
                   }}>
-                    {isFulfilled ? '✓ Target Met' : `${lackingHours}h Lacking`}
+                    {isFulfilled ? '✓ Target Met' : `${lackingHours}h Non-Investment`}
                   </div>
                 </div>
 
                 {/* Progress Bar */}
                 <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'var(--text-2)', marginBottom: '4px', fontWeight: '600' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: '#7F1D1D', marginBottom: '4px', fontWeight: '600' }}>
                     <span>Invested: {spentHours}h</span>
-                    <span>Target: {allocHours}h</span>
+                    <span>Target ({rangeLabel}): {allocHours}h</span>
                   </div>
                   <div style={{ 
                     height: '7px', 
                     width: '100%', 
-                    background: 'var(--surface-2)', 
+                    background: 'rgba(239, 68, 68, 0.1)', 
                     borderRadius: '4px', 
                     overflow: 'hidden' 
                   }}>
@@ -2013,16 +2113,16 @@ function WeeklyNonInvestmentsTile({ state }) {
                 {/* Card Footer: Lacking Details */}
                 <div style={{ 
                   fontSize: '10px', 
-                  color: 'var(--text-3)', 
+                  color: '#991B1B', 
                   display: 'flex', 
                   justify: 'space-between', 
                   alignItems: 'center',
                   paddingTop: '4px',
-                  borderTop: '1px dashed var(--border)'
+                  borderTop: '1px dashed rgba(239, 68, 68, 0.2)'
                 }}>
-                  <span>Uninvested target:</span>
-                  <span style={{ fontWeight: '700', color: isFulfilled ? '#166534' : '#D97706' }}>
-                    {isFulfilled ? '0.0 hours' : `${lackingHours}h (${100 - pctInvested}% left)`}
+                  <span>Non-invested target:</span>
+                  <span style={{ fontWeight: '700', color: isFulfilled ? '#166534' : '#DC2626' }}>
+                    {isFulfilled ? '0.0 hours' : `${lackingHours}h (${100 - pctInvested}% remaining)`}
                   </span>
                 </div>
               </div>
