@@ -1886,6 +1886,155 @@ function FlowingTimeCity({ overdrafted, dayBudget, daySpent }) {
 
 
 /* ─────────────────────────────────────────────────────
+   Weekly Non-Investments (Focus Target Lacking) Tile Component
+   ───────────────────────────────────────────────────── */
+function WeeklyNonInvestmentsTile({ state }) {
+  const { projects = [] } = state
+
+  // Calculate totals across all focus projects
+  const totalAllocated = projects.reduce((sum, p) => sum + (p.allocatedCash ?? 0), 0)
+  const totalSpent = projects.reduce((sum, p) => sum + (p.spentCash ?? 0), 0)
+  const totalLacking = Math.max(0, totalAllocated - totalSpent)
+
+  const totalAllocatedHours = (totalAllocated / 100).toFixed(1)
+  const totalSpentHours = (totalSpent / 100).toFixed(1)
+  const totalLackingHours = (totalLacking / 100).toFixed(1)
+
+  return (
+    <div className="surface" style={{ 
+      padding: '1.5rem', 
+      border: '1px solid var(--border)', 
+      background: 'rgba(255, 255, 255, 0.85)', 
+      backdropFilter: 'blur(10px)',
+      boxShadow: 'var(--shadow-sm)',
+      marginBottom: '1.5rem'
+    }}>
+      {/* Header */}
+      <div className="section-header" style={{ marginBottom: '1.25rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '10px' }}>
+        <div>
+          <span className="section-title" style={{ fontSize: '16px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <BarChart3 size={18} style={{ color: '#D97706' }} />
+            Weekly Non-Investments (Focus Target Lacking)
+          </span>
+          <span style={{ fontSize: '12px', fontWeight: '500', color: 'var(--text-3)', display: 'block', marginTop: '2px' }}>
+            Weekly summary of target focus hours remaining / lacking for each project (independent of daily schedule)
+          </span>
+        </div>
+        
+        {/* Total Summary Badge */}
+        <div style={{ textAlign: 'right', background: 'var(--surface-2)', padding: '6px 12px', borderRadius: 'var(--r-sm)', border: '1px solid var(--border)' }}>
+          <div style={{ fontSize: '10px', fontWeight: '700', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            Total Weekly Deficit
+          </div>
+          <div style={{ fontSize: '16px', fontWeight: '800', color: totalLacking > 0 ? '#D97706' : '#166534' }}>
+            {totalLackingHours}h <span style={{ fontSize: '11px', fontWeight: '600', color: 'var(--text-3)' }}>lacking</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Grid of Focus Projects & their Lacking Investment */}
+      {projects.length === 0 ? (
+        <div style={{ fontSize: '13px', color: 'var(--text-3)', fontStyle: 'italic', padding: '1rem 0' }}>
+          No focus projects active.
+        </div>
+      ) : (
+        <div style={{ 
+          display: 'grid', 
+          gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))', 
+          gap: '12px' 
+        }}>
+          {projects.map(p => {
+            const cTheme = COLORS[p.color] || COLORS.blue
+            const allocCash = p.allocatedCash ?? 0
+            const spentCash = p.spentCash ?? 0
+            const lackingCash = Math.max(0, allocCash - spentCash)
+            
+            const allocHours = (allocCash / 100).toFixed(1)
+            const spentHours = (spentCash / 100).toFixed(1)
+            const lackingHours = (lackingCash / 100).toFixed(1)
+
+            const pctInvested = allocCash > 0 ? Math.min(100, Math.round((spentCash / allocCash) * 100)) : 0
+            const isFulfilled = lackingCash === 0 && allocCash > 0
+
+            return (
+              <div key={p.id} style={{ 
+                background: 'var(--surface)', 
+                border: isFulfilled ? '1.5px solid rgba(34, 197, 94, 0.4)' : '1px solid var(--border)',
+                borderRadius: 'var(--r-md)',
+                padding: '12px 14px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '10px',
+                boxShadow: 'var(--shadow-xs)'
+              }}>
+                {/* Card Top Row: Project Name & Lacking Badge */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '700', fontSize: '13px', color: 'var(--text-1)' }}>
+                    <span style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: cTheme.hex, flexShrink: 0 }} />
+                    <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '120px' }}>{p.name}</span>
+                  </div>
+                  <div style={{ 
+                    fontSize: '10px', 
+                    fontWeight: '800', 
+                    padding: '2px 8px', 
+                    borderRadius: '999px',
+                    background: isFulfilled ? 'rgba(34, 197, 94, 0.12)' : 'rgba(217, 119, 6, 0.12)',
+                    color: isFulfilled ? '#15803D' : '#B45309',
+                    border: isFulfilled ? '1px solid rgba(34, 197, 94, 0.3)' : '1px solid rgba(217, 119, 6, 0.3)',
+                    flexShrink: 0
+                  }}>
+                    {isFulfilled ? '✓ Target Met' : `${lackingHours}h Lacking`}
+                  </div>
+                </div>
+
+                {/* Progress Bar */}
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'var(--text-2)', marginBottom: '4px', fontWeight: '600' }}>
+                    <span>Invested: {spentHours}h</span>
+                    <span>Target: {allocHours}h</span>
+                  </div>
+                  <div style={{ 
+                    height: '7px', 
+                    width: '100%', 
+                    background: 'var(--surface-2)', 
+                    borderRadius: '4px', 
+                    overflow: 'hidden' 
+                  }}>
+                    <div style={{ 
+                      height: '100%', 
+                      width: `${pctInvested}%`, 
+                      background: isFulfilled ? '#22C55E' : cTheme.hex,
+                      borderRadius: '4px',
+                      transition: 'width 0.3s ease'
+                    }} />
+                  </div>
+                </div>
+
+                {/* Card Footer: Lacking Details */}
+                <div style={{ 
+                  fontSize: '10px', 
+                  color: 'var(--text-3)', 
+                  display: 'flex', 
+                  justify: 'space-between', 
+                  alignItems: 'center',
+                  paddingTop: '4px',
+                  borderTop: '1px dashed var(--border)'
+                }}>
+                  <span>Uninvested target:</span>
+                  <span style={{ fontWeight: '700', color: isFulfilled ? '#166534' : '#D97706' }}>
+                    {isFulfilled ? '0.0 hours' : `${lackingHours}h (${100 - pctInvested}% left)`}
+                  </span>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* ─────────────────────────────────────────────────────
    Drag-and-Drop Weekly Timetable Tile Component
    ───────────────────────────────────────────────────── */
 function TimetableTile({ state, setState, todayKeyName, selectedDay }) {
@@ -3387,6 +3536,9 @@ function Dashboard({ state, setState }) {
           }
         </div>
       
+
+          {/* Weekly Non-Investments (Focus Target Lacking) Tile */}
+          <WeeklyNonInvestmentsTile state={state} />
 
           {/* Weekly Drag-and-Drop Timetable Tile */}
           <TimetableTile state={state} setState={setState} todayKeyName={todayKeyName} selectedDay={selectedDay} />
