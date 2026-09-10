@@ -3697,10 +3697,6 @@ export default function App() {
     state.lastResetDate
   ])
 
-  if (!state.token || !state.user) {
-    return <LoginModal state={state} setState={setState} onClose={null} forced={true} />
-  }
-
   if (!state.done) return <Onboarding state={state} setState={setState} />
   return <Dashboard state={state} setState={setState} />
 }
