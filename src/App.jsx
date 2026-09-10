@@ -219,6 +219,15 @@ function migrateState(s) {
     migrated = true
   }
 
+  // Repair project allocatedCash if shrunk by previous timetable bug
+  if (updated.projects && updated.totalCash) {
+    const totalAlloc = updated.projects.reduce((sum, p) => sum + (p.allocatedCash ?? 0), 0)
+    if (totalAlloc < updated.totalCash * 0.5) {
+      updated.projects = distributeByPriority(updated.projects, updated.totalCash)
+      migrated = true
+    }
+  }
+
   // Auto rollover on load if it is a new week!
   if (isNewWeek(updated.lastResetDate)) {
     return performWeeklyRollover(updated)
@@ -1909,18 +1918,16 @@ function TimetableTile({ state, setState, todayKeyName, selectedDay }) {
       const curTimetable = s.timetable || {}
       const nextTimetable = { ...curTimetable, [key]: projId }
 
-      // Sync project daily allocations with scheduled slots
+      // Sync project daily allocations with scheduled slots (without shrinking weekly allocatedCash)
       const updatedProjects = s.projects.map(p => {
         const newDailyAllocations = { ...p.dailyAllocations }
         DAYS.forEach(d => {
           const countOnDay = Object.entries(nextTimetable).filter(([k, v]) => k.startsWith(`${d}_`) && v === p.id).length
           newDailyAllocations[d] = countOnDay * 100
         })
-        const newWeeklyAlloc = Object.values(newDailyAllocations).reduce((a, b) => a + b, 0)
         return {
           ...p,
-          dailyAllocations: newDailyAllocations,
-          allocatedCash: newWeeklyAlloc > 0 ? newWeeklyAlloc : p.allocatedCash
+          dailyAllocations: newDailyAllocations
         }
       })
 
@@ -1944,11 +1951,9 @@ function TimetableTile({ state, setState, todayKeyName, selectedDay }) {
           const countOnDay = Object.entries(curTimetable).filter(([k, v]) => k.startsWith(`${d}_`) && v === p.id).length
           newDailyAllocations[d] = countOnDay * 100
         })
-        const newWeeklyAlloc = Object.values(newDailyAllocations).reduce((a, b) => a + b, 0)
         return {
           ...p,
-          dailyAllocations: newDailyAllocations,
-          allocatedCash: newWeeklyAlloc > 0 ? newWeeklyAlloc : p.allocatedCash
+          dailyAllocations: newDailyAllocations
         }
       })
 
