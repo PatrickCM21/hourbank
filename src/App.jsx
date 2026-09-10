@@ -2562,19 +2562,30 @@ function Dashboard({ state, setState }) {
 
           {/* User Auth control */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-2)', background: 'var(--surface-2)', padding: '6px 12px', borderRadius: '980px', border: '1px solid var(--border)' }}>
-              👤 {user?.email}
-            </span>
-            <button
-              className="btn btn-secondary btn-sm"
-              onClick={() => {
-                if (confirm('Log out? Your local storage will remain, but cloud syncing will be suspended.')) {
-                  setState(s => ({ ...s, user: null, token: null, refreshToken: null, syncStatus: 'synced' }))
-                }
-              }}
-            >
-              Log Out
-            </button>
+            {user ? (
+              <>
+                <span style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-2)', background: 'var(--surface-2)', padding: '6px 12px', borderRadius: '980px', border: '1px solid var(--border)' }}>
+                  👤 {user.email}
+                </span>
+                <button
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => {
+                    if (confirm('Log out? Your local storage will remain, but cloud syncing will be suspended.')) {
+                      setState(s => ({ ...s, user: null, token: null, refreshToken: null, syncStatus: 'synced' }))
+                    }
+                  }}
+                >
+                  Log Out
+                </button>
+              </>
+            ) : (
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={() => setState(s => ({ ...s, loginOpen: true }))}
+              >
+                🔑 Log In
+              </button>
+            )}
           </div>
 
           <button className="btn btn-secondary btn-sm" onClick={() => setState(s => ({ ...s, historyOpen: true }))}><History size={13} style={{ marginRight: '4px' }} /> History</button>
@@ -3444,6 +3455,7 @@ function Dashboard({ state, setState }) {
       {settingsOpen && <SettingsModal state={state} setState={setState} onClose={() => setState(s => ({ ...s, settingsOpen: false }))} />}
       {state.historyOpen && <HistoryModal state={state} setState={setState} onClose={() => setState(s => ({ ...s, historyOpen: false }))} />}
       {state.reportOpen && <ReportModal state={state} setState={setState} onClose={() => setState(s => ({ ...s, reportOpen: false }))} />}
+      {loginOpen && <LoginModal state={state} setState={setState} onClose={() => setState(s => ({ ...s, loginOpen: false }))} />}
     </div>
   )
 }
