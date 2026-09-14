@@ -3957,7 +3957,12 @@ export default function App() {
 
   // Auto-sync debounced trigger
   useEffect(() => {
-    if (!state.token || !state.user) return
+    if (!state.token || !state.user) {
+      if (state.syncStatus !== 'synced') {
+        setState(s => ({ ...s, syncStatus: 'synced' }))
+      }
+      return
+    }
 
     const payload = {
       step: state.step,
@@ -3974,16 +3979,16 @@ export default function App() {
       dailyCash: state.dailyCash,
       projects: state.projects,
       dailySpent: state.dailySpent,
+      timetable: state.timetable,
       ledger: state.ledger,
       selectedDay: state.selectedDay,
       history: state.history,
       lastResetDate: state.lastResetDate
     }
 
-    setState(s => ({ ...s, syncStatus: 'syncing' }))
-
     const timer = setTimeout(async () => {
       try {
+        setState(s => ({ ...s, syncStatus: 'syncing' }))
         let currentToken = state.token
         let res = await fetch('/api/update-state', {
           method: 'POST',
@@ -4018,18 +4023,21 @@ export default function App() {
         if (res.ok) {
           setState(s => ({ ...s, syncStatus: 'synced' }))
         } else {
-          setState(s => ({ ...s, syncStatus: 'error' }))
           if (res.status === 401) {
+            // Token expired or sandbox invalid - clear auth and switch to local synced status
             setState(s => ({
               ...s,
               token: null,
               refreshToken: null,
-              user: null
+              user: null,
+              syncStatus: 'synced'
             }))
+          } else {
+            setState(s => ({ ...s, syncStatus: 'error' }))
           }
         }
       } catch (_) {
-        setState(s => ({ ...s, syncStatus: 'error' }))
+        setState(s => ({ ...s, syncStatus: s.token ? 'error' : 'synced' }))
       }
     }, 1000) // 1-second debounce
 
@@ -4052,6 +4060,7 @@ export default function App() {
     JSON.stringify(state.dailyCash),
     JSON.stringify(state.projects),
     JSON.stringify(state.dailySpent),
+    JSON.stringify(state.timetable),
     JSON.stringify(state.ledger),
     state.selectedDay,
     JSON.stringify(state.history),

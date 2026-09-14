@@ -7,12 +7,12 @@ const DEFAULT_STATE = {
   dailySpent: { Mon: 0, Tue: 0, Wed: 0, Thu: 0, Fri: 0, Sat: 0, Sun: 0 },
   dailyCash: { Mon: 800, Tue: 800, Wed: 800, Thu: 800, Fri: 800, Sat: 900, Sun: 800 },
   projects: [
-    { id: 'p1', name: 'Computer Science', priority: 1, color: 'blue', allocatedCash: 2200, spentCash: 0 },
-    { id: 'p2', name: 'Arts & Reading',   priority: 2, color: 'purple', allocatedCash: 1650, spentCash: 0 },
-    { id: 'p3', name: 'Gym & Fitness',    priority: 3, color: 'pink', allocatedCash: 1100, spentCash: 0 },
-    { id: 'p4', name: 'Side Project',     priority: 4, color: 'orange', allocatedCash: 750, spentCash: 0 },
+    { id: 'p1', name: 'Red Herring', priority: 1, color: 'blue', allocatedCash: 2200, spentCash: 0 },
+    { id: 'p2', name: 'Admin Law',   priority: 2, color: 'purple', allocatedCash: 1650, spentCash: 0 },
+    { id: 'p3', name: 'Theories of Law', priority: 3, color: 'pink', allocatedCash: 1100, spentCash: 0 },
+    { id: 'p4', name: 'Chinese',     priority: 4, color: 'orange', allocatedCash: 750, spentCash: 0 },
   ],
-  cards: [], ledger: [], selectedDay: 'Mon', timer: null
+  cards: [], ledger: [], selectedDay: 'Mon', timer: null, timetable: {}
 }
 
 export default async function handler(req, res) {
