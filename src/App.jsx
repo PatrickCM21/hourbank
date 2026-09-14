@@ -2250,7 +2250,37 @@ function TimetableTile({ state, setState, todayKeyName, selectedDay }) {
     return `${h - 12} PM`
   }
 
-  // Count placed slots per project
+  // Pre-calculate worked slot assignments for all days based on actual logged focus time
+  // workedSlotsMap: { [`${day}_${hour}`]: projId }
+  const workedSlotsMap = {}
+
+  DAYS.forEach(d => {
+    // Collect projects with spent focus hours on day d
+    projects.forEach(p => {
+      let spentSlotsCount = Math.floor((p.dailySpent?.[d] ?? 0) / 100)
+      if (spentSlotsCount <= 0) return
+
+      // Priority 1: Match slots where user explicitly planned project p on day d
+      hours.forEach(h => {
+        const key = `${d}_${h}`
+        if (spentSlotsCount > 0 && timetable[key] === p.id && !workedSlotsMap[key]) {
+          workedSlotsMap[key] = p.id
+          spentSlotsCount--
+        }
+      })
+
+      // Priority 2: If remaining logged focus hours exist, auto-fill earliest available/planned slots on day d
+      hours.forEach(h => {
+        const key = `${d}_${h}`
+        if (spentSlotsCount > 0 && !workedSlotsMap[key]) {
+          workedSlotsMap[key] = p.id
+          spentSlotsCount--
+        }
+      })
+    })
+  })
+
+  // Count placed planned slots per project
   const getPlacedCount = (projId) => {
     return Object.values(timetable).filter(id => id === projId).length
   }
@@ -2298,7 +2328,7 @@ function TimetableTile({ state, setState, todayKeyName, selectedDay }) {
           Timetable (Weekly Schedule & History View)
         </span>
         <span style={{ fontSize: '12px', fontWeight: '500', color: 'var(--text-3)' }}>
-          Drag project tiles to plan your schedule & track your logged focus investments
+          Drag project tiles to plan your schedule. Actual logged work auto-fills as unmovable tiles!
         </span>
       </div>
 
@@ -2373,7 +2403,7 @@ function TimetableTile({ state, setState, todayKeyName, selectedDay }) {
                       cursor: 'grab',
                       display: 'flex',
                       alignItems: 'center',
-                      justify: 'space-between',
+                      justifyContent: 'space-between',
                       boxShadow: '0 2px 6px rgba(0,0,0,0.1)',
                       userSelect: 'none'
                     }}
@@ -2443,19 +2473,12 @@ function TimetableTile({ state, setState, todayKeyName, selectedDay }) {
                   {/* Day Slots */}
                   {DAYS.map(d => {
                     const key = `${d}_${h}`
-                    const placedProjId = timetable[key]
-                    const placedProj = projects.find(p => p.id === placedProjId)
-                    const displayProj = placedProj
+                    const workedProjId = workedSlotsMap[key]
+                    const plannedProjId = timetable[key]
 
-                    // Determine if this specific placed slot is marked as spent/worked
-                    let isSpent = false
-                    if (placedProj) {
-                      const placedHoursOnDay = hours.filter(hour => timetable[`${d}_${hour}`] === placedProj.id)
-                      const slotIdx = placedHoursOnDay.indexOf(h)
-                      const spentHours = (placedProj.dailySpent?.[d] ?? 0) / 100
-                      isSpent = slotIdx >= 0 && slotIdx < spentHours
-                    }
-
+                    const isWorkedSlot = Boolean(workedProjId)
+                    const displayProjId = workedProjId || plannedProjId
+                    const displayProj = projects.find(p => p.id === displayProjId)
                     const cTheme = displayProj ? (COLORS[displayProj.color] || COLORS.blue) : null
 
                     return (
@@ -2465,12 +2488,14 @@ function TimetableTile({ state, setState, todayKeyName, selectedDay }) {
                         onDrop={(e) => {
                           e.preventDefault()
                           const projId = e.dataTransfer.getData('text/plain') || draggedProjId || selectedBrush
-                          if (projId) {
+                          if (projId && !isWorkedSlot) {
                             handlePlaceTile(d, h, projId)
                           }
                         }}
                         onClick={() => {
-                          if (placedProjId) {
+                          if (isWorkedSlot) {
+                            alert(`This tile represents actual logged focus work on "${displayProj.name}". To remove or change it, adjust your focus time on the project card.`)
+                          } else if (plannedProjId) {
                             handleRemoveTile(d, h)
                           } else if (selectedBrush) {
                             const proj = projects.find(p => p.id === selectedBrush)
@@ -2483,17 +2508,17 @@ function TimetableTile({ state, setState, todayKeyName, selectedDay }) {
                         }}
                         style={{
                           height: '42px',
-                          background: displayProj ? (isSpent ? 'rgba(52, 199, 89, 0.08)' : cTheme.bg) : 'var(--surface-2)',
-                          border: displayProj ? (isSpent ? '1.5px solid #34C759' : `1.5px solid ${cTheme.hex}`) : '1px dashed var(--border)',
+                          background: displayProj ? (isWorkedSlot ? 'rgba(52, 199, 89, 0.12)' : cTheme.bg) : 'var(--surface-2)',
+                          border: displayProj ? (isWorkedSlot ? '1.5px solid #22C55E' : `1.5px solid ${cTheme.hex}`) : '1px dashed var(--border)',
                           borderRadius: '6px',
                           padding: '2px 4px',
                           textAlign: 'center',
                           verticalAlign: 'middle',
-                          cursor: displayProj ? 'pointer' : selectedBrush ? 'pointer' : 'default',
+                          cursor: isWorkedSlot ? 'not-allowed' : displayProj ? 'pointer' : selectedBrush ? 'pointer' : 'default',
                           transition: 'all 0.15s',
                           position: 'relative'
                         }}
-                        title={placedProj ? (isSpent ? `✓ Worked ${placedProj.name} (Click to remove)` : `Click to remove ${placedProj.name}`) : selectedBrush ? 'Click to place selected tile' : 'Drag tile here'}
+                        title={isWorkedSlot ? `🔒 Logged Work: ${displayProj.name} (Locked). Adjust focus card to remove.` : plannedProj ? `Click to remove planned tile ${plannedProj.name}` : selectedBrush ? 'Click to place planned tile' : 'Drag tile here'}
                       >
                         {displayProj ? (
                           <div style={{ 
@@ -2502,15 +2527,15 @@ function TimetableTile({ state, setState, todayKeyName, selectedDay }) {
                             justifyContent: 'space-between', 
                             width: '100%', 
                             height: '100%',
-                            color: isSpent ? '#1A7A33' : cTheme.hex,
+                            color: isWorkedSlot ? '#15803D' : cTheme.hex,
                             fontWeight: '700',
                             fontSize: '10px',
                             padding: '0 4px'
                           }}>
-                            <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '60px' }}>
-                              {isSpent ? `✓ ${displayProj.name}` : displayProj.name}
+                            <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: isWorkedSlot ? '75px' : '60px' }}>
+                              {isWorkedSlot ? `🔒 ✓ ${displayProj.name}` : displayProj.name}
                             </span>
-                            {placedProjId && (
+                            {!isWorkedSlot && plannedProjId && (
                               <span 
                                 onClick={(e) => {
                                   e.stopPropagation()
@@ -2522,7 +2547,7 @@ function TimetableTile({ state, setState, todayKeyName, selectedDay }) {
                                   opacity: 0.75, 
                                   marginLeft: '2px' 
                                 }}
-                                title="Remove slot"
+                                title="Remove planned tile"
                               >
                                 ×
                               </span>
@@ -2537,7 +2562,6 @@ function TimetableTile({ state, setState, todayKeyName, selectedDay }) {
             </tbody>
           </table>
         </div>
-
       </div>
     </div>
   )
