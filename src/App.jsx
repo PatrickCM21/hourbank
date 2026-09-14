@@ -1892,9 +1892,7 @@ function FlowingTimeCity({ overdrafted, dayBudget, daySpent }) {
    Non-Investments Tile Component (Light Red Theme)
    ───────────────────────────────────────────────────── */
 function WeeklyNonInvestmentsTile({ state, selectedDay }) {
-  const [viewMode, setViewMode] = useState('soFar') // 'soFar' | 'wholeWeek' | 'allThree' | 'custom'
-  const [startDay, setStartDay] = useState('Mon')
-  const [endDay, setEndDay] = useState('Sun')
+  const [viewMode, setViewMode] = useState('soFar') // 'soFar' | 'wholeWeek' | 'allThree'
 
   const { projects = [] } = state
 
@@ -1905,14 +1903,8 @@ function WeeklyNonInvestmentsTile({ state, selectedDay }) {
   let activeDays = []
   if (viewMode === 'soFar') {
     activeDays = DAYS.slice(0, todayIdx + 1)
-  } else if (viewMode === 'wholeWeek') {
-    activeDays = [...DAYS]
-  } else if (viewMode === 'custom') {
-    const sIdx = DAYS.indexOf(startDay)
-    const eIdx = Math.max(sIdx, DAYS.indexOf(endDay))
-    activeDays = DAYS.slice(sIdx, eIdx + 1)
   } else {
-    // allThree
+    // wholeWeek & allThree
     activeDays = [...DAYS]
   }
 
@@ -1951,10 +1943,9 @@ function WeeklyNonInvestmentsTile({ state, selectedDay }) {
   const totalLackingHours = (totalLacking / 100).toFixed(1)
 
   const viewModeLabels = {
-    soFar: `Week So Far (Mon → ${todayKeyName})`,
-    wholeWeek: 'Whole Week (Mon → Sun)',
-    allThree: '3-Circle Overview (Today, Week So Far, Whole Week)',
-    custom: `Custom Range (${startDay} – ${endDay})`
+    soFar: 'Week So Far',
+    wholeWeek: 'Whole Week',
+    allThree: '3-Circle Overview (Today, Week So Far, Whole Week)'
   }
 
   return (
@@ -1996,7 +1987,7 @@ function WeeklyNonInvestmentsTile({ state, selectedDay }) {
                 color: viewMode === 'soFar' ? '#FFFFFF' : '#7F1D1D',
                 border: 'none',
                 borderRadius: '4px',
-                padding: '4px 10px',
+                padding: '4px 12px',
                 fontSize: '11px',
                 fontWeight: '700',
                 cursor: 'pointer',
@@ -2004,7 +1995,7 @@ function WeeklyNonInvestmentsTile({ state, selectedDay }) {
               }}
               title="Track progress from Monday up to today"
             >
-              Week So Far (Mon → {todayKeyName})
+              Week So Far
             </button>
 
             <button 
@@ -2014,7 +2005,7 @@ function WeeklyNonInvestmentsTile({ state, selectedDay }) {
                 color: viewMode === 'wholeWeek' ? '#FFFFFF' : '#7F1D1D',
                 border: 'none',
                 borderRadius: '4px',
-                padding: '4px 10px',
+                padding: '4px 12px',
                 fontSize: '11px',
                 fontWeight: '700',
                 cursor: 'pointer',
@@ -2032,7 +2023,7 @@ function WeeklyNonInvestmentsTile({ state, selectedDay }) {
                 color: viewMode === 'allThree' ? '#FFFFFF' : '#7F1D1D',
                 border: 'none',
                 borderRadius: '4px',
-                padding: '4px 10px',
+                padding: '4px 12px',
                 fontSize: '11px',
                 fontWeight: '700',
                 cursor: 'pointer',
@@ -2042,93 +2033,7 @@ function WeeklyNonInvestmentsTile({ state, selectedDay }) {
             >
               Show All 3
             </button>
-
-            <button 
-              onClick={() => setViewMode('custom')}
-              style={{
-                background: viewMode === 'custom' ? '#DC2626' : 'transparent',
-                color: viewMode === 'custom' ? '#FFFFFF' : '#7F1D1D',
-                border: 'none',
-                borderRadius: '4px',
-                padding: '4px 10px',
-                fontSize: '11px',
-                fontWeight: '700',
-                cursor: 'pointer',
-                transition: 'all 0.15s'
-              }}
-              title="Select custom day range"
-            >
-              Custom
-            </button>
           </div>
-
-          {/* Custom Date Selectors if Custom View selected */}
-          {viewMode === 'custom' && (
-            <div style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '6px', 
-              background: 'rgba(255, 255, 255, 0.85)', 
-              padding: '4px 10px', 
-              borderRadius: 'var(--r-sm)', 
-              border: '1px solid rgba(239, 68, 68, 0.2)',
-              fontSize: '11px',
-              fontWeight: '700',
-              color: '#7F1D1D'
-            }}>
-              <span>From:</span>
-              <select 
-                value={startDay} 
-                onChange={(e) => {
-                  const newStart = e.target.value
-                  setStartDay(newStart)
-                  if (DAYS.indexOf(newStart) > DAYS.indexOf(endDay)) {
-                    setEndDay(newStart)
-                  }
-                }}
-                style={{
-                  background: '#FFFFFF',
-                  border: '1px solid rgba(239, 68, 68, 0.3)',
-                  borderRadius: '4px',
-                  padding: '2px 6px',
-                  fontSize: '11px',
-                  fontWeight: '700',
-                  color: '#991B1B',
-                  cursor: 'pointer'
-                }}
-              >
-                {DAYS.map(d => (
-                  <option key={d} value={d}>{d}</option>
-                ))}
-              </select>
-
-              <span>To:</span>
-              <select 
-                value={endDay} 
-                onChange={(e) => {
-                  const newEnd = e.target.value
-                  setEndDay(newEnd)
-                  if (DAYS.indexOf(newEnd) < DAYS.indexOf(startDay)) {
-                    setStartDay(newEnd)
-                  }
-                }}
-                style={{
-                  background: '#FFFFFF',
-                  border: '1px solid rgba(239, 68, 68, 0.3)',
-                  borderRadius: '4px',
-                  padding: '2px 6px',
-                  fontSize: '11px',
-                  fontWeight: '700',
-                  color: '#991B1B',
-                  cursor: 'pointer'
-                }}
-              >
-                {DAYS.map(d => (
-                  <option key={d} value={d}>{d}</option>
-                ))}
-              </select>
-            </div>
-          )}
 
           {/* Total Deficit Summary Badge */}
           <div style={{ textAlign: 'right', background: 'rgba(255, 255, 255, 0.85)', padding: '6px 12px', borderRadius: 'var(--r-sm)', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
