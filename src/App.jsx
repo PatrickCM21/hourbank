@@ -2199,23 +2199,9 @@ function TimetableTile({ state, setState, todayKeyName, selectedDay }) {
       const curTimetable = s.timetable || {}
       const nextTimetable = { ...curTimetable, [key]: projId }
 
-      const updatedProjects = s.projects.map(p => {
-        const defaultDailyMap = distributeProjectWeeklyToDaily(p.allocatedCash ?? 1400)
-        const newDailyAllocations = { ...p.dailyAllocations }
-        DAYS.forEach(d => {
-          const countOnDay = Object.entries(nextTimetable).filter(([k, v]) => k.startsWith(`${d}_`) && v === p.id).length
-          newDailyAllocations[d] = countOnDay > 0 ? countOnDay * 100 : (defaultDailyMap[d] ?? 200)
-        })
-        return {
-          ...p,
-          dailyAllocations: newDailyAllocations
-        }
-      })
-
       return {
         ...s,
-        timetable: nextTimetable,
-        projects: updatedProjects
+        timetable: nextTimetable
       }
     })
   }
@@ -2226,23 +2212,9 @@ function TimetableTile({ state, setState, todayKeyName, selectedDay }) {
       const curTimetable = { ...(s.timetable || {}) }
       delete curTimetable[key]
 
-      const updatedProjects = s.projects.map(p => {
-        const defaultDailyMap = distributeProjectWeeklyToDaily(p.allocatedCash ?? 1400)
-        const newDailyAllocations = { ...p.dailyAllocations }
-        DAYS.forEach(d => {
-          const countOnDay = Object.entries(curTimetable).filter(([k, v]) => k.startsWith(`${d}_`) && v === p.id).length
-          newDailyAllocations[d] = countOnDay > 0 ? countOnDay * 100 : (defaultDailyMap[d] ?? 200)
-        })
-        return {
-          ...p,
-          dailyAllocations: newDailyAllocations
-        }
-      })
-
       return {
         ...s,
-        timetable: curTimetable,
-        projects: updatedProjects
+        timetable: curTimetable
       }
     })
   }
@@ -2267,7 +2239,7 @@ function TimetableTile({ state, setState, todayKeyName, selectedDay }) {
       </div>
 
       {/* Main Container: Left Palette Bank + Right Empty Weekly Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: '230px 1fr', gap: '1.25rem', alignItems: 'start' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '230px 1fr', gap: '1.25rem', alignItems: 'stretch' }}>
         
         {/* Left Side: Unscheduled Hour Tiles Palette Bank */}
         <div style={{ 
@@ -2277,7 +2249,9 @@ function TimetableTile({ state, setState, todayKeyName, selectedDay }) {
           padding: '1rem',
           display: 'flex',
           flexDirection: 'column',
-          gap: '12px'
+          gap: '12px',
+          height: '100%',
+          boxSizing: 'border-box'
         }}>
           <div style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', color: 'var(--text-3)', letterSpacing: '0.05em' }}>
             Focus Hour Bank
@@ -2335,7 +2309,7 @@ function TimetableTile({ state, setState, todayKeyName, selectedDay }) {
                       cursor: 'grab',
                       display: 'flex',
                       alignItems: 'center',
-                      justifyContent: 'space-between',
+                      justify: 'space-between',
                       boxShadow: '0 2px 6px rgba(0,0,0,0.1)',
                       userSelect: 'none'
                     }}
@@ -2355,8 +2329,8 @@ function TimetableTile({ state, setState, todayKeyName, selectedDay }) {
         </div>
 
         {/* Right Side: Weekly Schedule & Investment History Grid */}
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: '4px', fontSize: '11px' }}>
+        <div style={{ overflowX: 'auto', height: '100%', display: 'flex', flexDirection: 'column' }}>
+          <table style={{ width: '100%', height: '100%', borderCollapse: 'separate', borderSpacing: '4px', fontSize: '11px' }}>
             <thead>
               <tr>
                 <th style={{ width: '65px', padding: '6px', textAlign: 'center', color: 'var(--text-3)', fontWeight: '700' }}>
@@ -2444,7 +2418,7 @@ function TimetableTile({ state, setState, todayKeyName, selectedDay }) {
                           }
                         }}
                         style={{
-                          height: '36px',
+                          height: '42px',
                           background: displayProj ? (isSpent ? 'rgba(52, 199, 89, 0.08)' : cTheme.bg) : 'var(--surface-2)',
                           border: displayProj ? (isSpent ? '1.5px solid #34C759' : `1.5px solid ${cTheme.hex}`) : '1px dashed var(--border)',
                           borderRadius: '6px',
