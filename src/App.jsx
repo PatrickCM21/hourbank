@@ -2042,7 +2042,7 @@ function WeeklyNonInvestmentsTile({ state }) {
         </div>
       </div>
 
-      {/* Grid of Focus Projects & their Lacking Investment */}
+      {/* Grid of Focus Projects & their Lacking Investment Pie Graphs */}
       {projects.length === 0 ? (
         <div style={{ fontSize: '13px', color: '#991B1B', fontStyle: 'italic', padding: '1rem 0' }}>
           No focus projects active.
@@ -2050,10 +2050,10 @@ function WeeklyNonInvestmentsTile({ state }) {
       ) : (
         <div style={{ 
           display: 'grid', 
-          gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))', 
-          gap: '12px' 
+          gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', 
+          gap: '14px' 
         }}>
-          {projectStats.map(({ p, allocCash, spentCash, lackingCash, allocHours, spentHours, lackingHours, pctInvested, isFulfilled }) => {
+          {projectStats.map(({ p, allocHours, spentHours, lackingHours, pctInvested, isFulfilled }) => {
             const cTheme = COLORS[p.color] || COLORS.blue
 
             return (
@@ -2061,69 +2061,97 @@ function WeeklyNonInvestmentsTile({ state }) {
                 background: 'rgba(255, 255, 255, 0.85)', 
                 border: isFulfilled ? '1.5px solid rgba(34, 197, 94, 0.5)' : '1.5px solid rgba(239, 68, 68, 0.25)',
                 borderRadius: 'var(--r-md)',
-                padding: '12px 14px',
+                padding: '14px',
                 display: 'flex',
                 flexDirection: 'column',
+                alignItems: 'center',
                 gap: '10px',
                 boxShadow: '0 2px 8px rgba(239, 68, 68, 0.05)'
               }}>
                 {/* Card Top Row: Project Name & Lacking Badge */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '700', fontSize: '13px', color: 'var(--text-1)' }}>
-                    <span style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: cTheme.hex, flexShrink: 0 }} />
-                    <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '120px' }}>{p.name}</span>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: '6px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '700', fontSize: '13px', color: 'var(--text-1)' }}>
+                    <span style={{ width: '9px', height: '9px', borderRadius: '50%', backgroundColor: cTheme.hex, flexShrink: 0 }} />
+                    <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '110px' }}>{p.name}</span>
                   </div>
                   <div style={{ 
                     fontSize: '10px', 
                     fontWeight: '800', 
-                    padding: '2px 8px', 
+                    padding: '2px 7px', 
                     borderRadius: '999px',
                     background: isFulfilled ? 'rgba(34, 197, 94, 0.12)' : 'rgba(239, 68, 68, 0.12)',
                     color: isFulfilled ? '#15803D' : '#DC2626',
                     border: isFulfilled ? '1px solid rgba(34, 197, 94, 0.3)' : '1px solid rgba(239, 68, 68, 0.3)',
                     flexShrink: 0
                   }}>
-                    {isFulfilled ? '✓ Target Met' : `${lackingHours}h Non-Investment`}
+                    {isFulfilled ? '✓ Target Met' : `${lackingHours}h Lacking`}
                   </div>
                 </div>
 
-                {/* Progress Bar */}
-                <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: '#7F1D1D', marginBottom: '4px', fontWeight: '600' }}>
-                    <span>Invested: {spentHours}h</span>
-                    <span>Target ({rangeLabel}): {allocHours}h</span>
-                  </div>
+                {/* SVG Donut / Pie Progress Chart */}
+                <div style={{ position: 'relative', width: '100px', height: '100px', margin: '2px 0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <svg width="100" height="100" viewBox="0 0 42 42">
+                    {/* Background Circle (Lacking / Non-invested portion) */}
+                    <circle
+                      cx="21"
+                      cy="21"
+                      r="15.91549430918954"
+                      fill="transparent"
+                      stroke="rgba(239, 68, 68, 0.2)"
+                      strokeWidth="4.5"
+                    />
+                    {/* Progress Circle (Invested portion) */}
+                    <circle
+                      cx="21"
+                      cy="21"
+                      r="15.91549430918954"
+                      fill="transparent"
+                      stroke={isFulfilled ? '#22C55E' : cTheme.hex}
+                      strokeWidth="4.5"
+                      strokeDasharray={`${pctInvested} ${100 - pctInvested}`}
+                      strokeDashoffset="25"
+                      strokeLinecap="round"
+                      style={{ transition: 'stroke-dasharray 0.4s ease' }}
+                    />
+                  </svg>
+
+                  {/* Donut Center Content */}
                   <div style={{ 
-                    height: '7px', 
-                    width: '100%', 
-                    background: 'rgba(239, 68, 68, 0.1)', 
-                    borderRadius: '4px', 
-                    overflow: 'hidden' 
+                    position: 'absolute', 
+                    top: 0, left: 0, right: 0, bottom: 0, 
+                    display: 'flex', 
+                    flexDirection: 'column', 
+                    alignItems: 'center', 
+                    justifyContent: 'center',
+                    pointerEvents: 'none'
                   }}>
-                    <div style={{ 
-                      height: '100%', 
-                      width: `${pctInvested}%`, 
-                      background: isFulfilled ? '#22C55E' : cTheme.hex,
-                      borderRadius: '4px',
-                      transition: 'width 0.3s ease'
-                    }} />
+                    <div style={{ fontSize: '14px', fontWeight: '800', color: isFulfilled ? '#166534' : '#991B1B', lineHeight: 1 }}>
+                      {pctInvested}%
+                    </div>
+                    <div style={{ fontSize: '9px', fontWeight: '700', color: '#7F1D1D', marginTop: '3px' }}>
+                      {spentHours}h / {allocHours}h
+                    </div>
                   </div>
                 </div>
 
-                {/* Card Footer: Lacking Details */}
+                {/* Hours Summary Legend */}
                 <div style={{ 
+                  width: '100%', 
                   fontSize: '10px', 
-                  color: '#991B1B', 
                   display: 'flex', 
                   justify: 'space-between', 
                   alignItems: 'center',
-                  paddingTop: '4px',
+                  paddingTop: '6px',
                   borderTop: '1px dashed rgba(239, 68, 68, 0.2)'
                 }}>
-                  <span>Non-invested target:</span>
-                  <span style={{ fontWeight: '700', color: isFulfilled ? '#166534' : '#DC2626' }}>
-                    {isFulfilled ? '0.0 hours' : `${lackingHours}h (${100 - pctInvested}% remaining)`}
-                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontWeight: '600', color: '#166534' }}>
+                    <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: isFulfilled ? '#22C55E' : cTheme.hex }} />
+                    <span>{spentHours}h Done</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontWeight: '600', color: '#DC2626' }}>
+                    <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: 'rgba(239, 68, 68, 0.6)' }} />
+                    <span>{lackingHours}h Lacking</span>
+                  </div>
                 </div>
               </div>
             )
