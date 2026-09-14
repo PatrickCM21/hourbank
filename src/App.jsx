@@ -1888,49 +1888,61 @@ function FlowingTimeCity({ overdrafted, dayBudget, daySpent }) {
 /* ─────────────────────────────────────────────────────
    Non-Investments Tile Component (Light Red Theme)
    ───────────────────────────────────────────────────── */
-function WeeklyNonInvestmentsTile({ state }) {
+/* ─────────────────────────────────────────────────────
+   Non-Investments Tile Component (Light Red Theme)
+   ───────────────────────────────────────────────────── */
+function WeeklyNonInvestmentsTile({ state, selectedDay }) {
+  const [viewMode, setViewMode] = useState('soFar') // 'soFar' | 'wholeWeek' | 'allThree' | 'custom'
   const [startDay, setStartDay] = useState('Mon')
   const [endDay, setEndDay] = useState('Sun')
 
   const { projects = [] } = state
 
-  const startIdx = DAYS.indexOf(startDay)
-  const endIdx = Math.max(startIdx, DAYS.indexOf(endDay))
-  const includedDays = DAYS.slice(startIdx, endIdx + 1)
+  const todayKeyName = selectedDay || todayKey()
+  const todayIdx = DAYS.indexOf(todayKeyName)
 
-  // Calculate allocations & spent cash for included days across projects
+  // Determine active days array based on viewMode
+  let activeDays = []
+  if (viewMode === 'soFar') {
+    activeDays = DAYS.slice(0, todayIdx + 1)
+  } else if (viewMode === 'wholeWeek') {
+    activeDays = [...DAYS]
+  } else if (viewMode === 'custom') {
+    const sIdx = DAYS.indexOf(startDay)
+    const eIdx = Math.max(sIdx, DAYS.indexOf(endDay))
+    activeDays = DAYS.slice(sIdx, eIdx + 1)
+  } else {
+    // allThree
+    activeDays = [...DAYS]
+  }
+
+  // Helper function to calculate metrics for a project over a set of days
+  const getProjectMetrics = (p, dayList) => {
+    const defaultDailyMap = distributeProjectWeeklyToDaily(p.allocatedCash ?? 1400)
+    const allocCash = dayList.reduce((sum, d) => {
+      const rawAlloc = p.dailyAllocations?.[d]
+      return sum + ((rawAlloc !== undefined && rawAlloc > 0) ? rawAlloc : (defaultDailyMap[d] ?? 200))
+    }, 0)
+    const spentCash = dayList.reduce((sum, d) => sum + (p.dailySpent?.[d] ?? 0), 0)
+    const lackingCash = Math.max(0, allocCash - spentCash)
+
+    const allocHours = (allocCash / 100).toFixed(1)
+    const spentHours = (spentCash / 100).toFixed(1)
+    const lackingHours = (lackingCash / 100).toFixed(1)
+    const pct = allocCash > 0 ? Math.min(100, Math.round((spentCash / allocCash) * 100)) : 0
+    const isFulfilled = lackingCash === 0 && allocCash > 0
+
+    return { allocCash, spentCash, lackingCash, allocHours, spentHours, lackingHours, pct, isFulfilled }
+  }
+
+  // Calculate totals for activeDays scope
   let totalAllocated = 0
   let totalSpent = 0
 
-  const projectStats = projects.map(p => {
-    const defaultDailyMap = distributeProjectWeeklyToDaily(p.allocatedCash ?? 1400)
-    
-    // Calculate target allocation for included range
-    const allocCash = includedDays.reduce((sum, d) => {
-      const rawAlloc = p.dailyAllocations?.[d]
-      const dailyAlloc = (rawAlloc !== undefined && rawAlloc > 0) ? rawAlloc : (defaultDailyMap[d] ?? 200)
-      return sum + dailyAlloc
-    }, 0)
-
-    // Calculate spent cash for included range
-    const spentCash = includedDays.reduce((sum, d) => sum + (p.dailySpent?.[d] ?? 0), 0)
-
-    const lackingCash = Math.max(0, allocCash - spentCash)
-
-    totalAllocated += allocCash
-    totalSpent += spentCash
-
-    return {
-      p,
-      allocCash,
-      spentCash,
-      lackingCash,
-      allocHours: (allocCash / 100).toFixed(1),
-      spentHours: (spentCash / 100).toFixed(1),
-      lackingHours: (lackingCash / 100).toFixed(1),
-      pctInvested: allocCash > 0 ? Math.min(100, Math.round((spentCash / allocCash) * 100)) : 0,
-      isFulfilled: lackingCash === 0 && allocCash > 0
-    }
+  projects.forEach(p => {
+    const m = getProjectMetrics(p, activeDays)
+    totalAllocated += m.allocCash
+    totalSpent += m.spentCash
   })
 
   const totalLacking = Math.max(0, totalAllocated - totalSpent)
@@ -1938,7 +1950,12 @@ function WeeklyNonInvestmentsTile({ state }) {
   const totalSpentHours = (totalSpent / 100).toFixed(1)
   const totalLackingHours = (totalLacking / 100).toFixed(1)
 
-  const rangeLabel = startDay === endDay ? startDay : `${startDay} – ${endDay}`
+  const viewModeLabels = {
+    soFar: `Week So Far (Mon → ${todayKeyName})`,
+    wholeWeek: 'Whole Week (Mon → Sun)',
+    allThree: '3-Circle Overview (Today, Week So Far, Whole Week)',
+    custom: `Custom Range (${startDay} – ${endDay})`
+  }
 
   return (
     <div className="surface" style={{ 
@@ -1958,82 +1975,165 @@ function WeeklyNonInvestmentsTile({ state }) {
             Non-Investments
           </span>
           <span style={{ fontSize: '12px', fontWeight: '600', color: '#B91C1C', opacity: 0.85, display: 'block', marginTop: '2px' }}>
-            Tracking non-invested hours for {rangeLabel} ({includedDays.length} {includedDays.length === 1 ? 'day' : 'days'})
+            {viewModeLabels[viewMode]} — {totalSpentHours}h done out of {totalAllocatedHours}h target
           </span>
         </div>
-        
-        {/* Day Selector & Total Deficit */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-          {/* Day Range Selectors */}
+
+        {/* View Mode Toggle Controls */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
           <div style={{ 
             display: 'flex', 
-            alignItems: 'center', 
-            gap: '6px', 
             background: 'rgba(255, 255, 255, 0.85)', 
-            padding: '4px 10px', 
+            padding: '3px', 
             borderRadius: 'var(--r-sm)', 
             border: '1px solid rgba(239, 68, 68, 0.2)',
-            fontSize: '11px',
-            fontWeight: '700',
-            color: '#7F1D1D'
+            gap: '2px'
           }}>
-            <span>Track From:</span>
-            <select 
-              value={startDay} 
-              onChange={(e) => {
-                const newStart = e.target.value
-                setStartDay(newStart)
-                if (DAYS.indexOf(newStart) > DAYS.indexOf(endDay)) {
-                  setEndDay(newStart)
-                }
-              }}
+            <button 
+              onClick={() => setViewMode('soFar')}
               style={{
-                background: '#FFFFFF',
-                border: '1px solid rgba(239, 68, 68, 0.3)',
+                background: viewMode === 'soFar' ? '#DC2626' : 'transparent',
+                color: viewMode === 'soFar' ? '#FFFFFF' : '#7F1D1D',
+                border: 'none',
                 borderRadius: '4px',
-                padding: '2px 6px',
+                padding: '4px 10px',
                 fontSize: '11px',
                 fontWeight: '700',
-                color: '#991B1B',
-                cursor: 'pointer'
+                cursor: 'pointer',
+                transition: 'all 0.15s'
               }}
+              title="Track progress from Monday up to today"
             >
-              {DAYS.map(d => (
-                <option key={d} value={d}>{d}</option>
-              ))}
-            </select>
+              Week So Far (Mon → {todayKeyName})
+            </button>
 
-            <span>To:</span>
-            <select 
-              value={endDay} 
-              onChange={(e) => {
-                const newEnd = e.target.value
-                setEndDay(newEnd)
-                if (DAYS.indexOf(newEnd) < DAYS.indexOf(startDay)) {
-                  setStartDay(newEnd)
-                }
-              }}
+            <button 
+              onClick={() => setViewMode('wholeWeek')}
               style={{
-                background: '#FFFFFF',
-                border: '1px solid rgba(239, 68, 68, 0.3)',
+                background: viewMode === 'wholeWeek' ? '#DC2626' : 'transparent',
+                color: viewMode === 'wholeWeek' ? '#FFFFFF' : '#7F1D1D',
+                border: 'none',
                 borderRadius: '4px',
-                padding: '2px 6px',
+                padding: '4px 10px',
                 fontSize: '11px',
                 fontWeight: '700',
-                color: '#991B1B',
-                cursor: 'pointer'
+                cursor: 'pointer',
+                transition: 'all 0.15s'
               }}
+              title="Track progress for the entire 7-day week"
             >
-              {DAYS.map(d => (
-                <option key={d} value={d}>{d}</option>
-              ))}
-            </select>
+              Whole Week
+            </button>
+
+            <button 
+              onClick={() => setViewMode('allThree')}
+              style={{
+                background: viewMode === 'allThree' ? '#DC2626' : 'transparent',
+                color: viewMode === 'allThree' ? '#FFFFFF' : '#7F1D1D',
+                border: 'none',
+                borderRadius: '4px',
+                padding: '4px 10px',
+                fontSize: '11px',
+                fontWeight: '700',
+                cursor: 'pointer',
+                transition: 'all 0.15s'
+              }}
+              title="Show 3 circles side-by-side: Today, Week So Far, Whole Week"
+            >
+              Show All 3
+            </button>
+
+            <button 
+              onClick={() => setViewMode('custom')}
+              style={{
+                background: viewMode === 'custom' ? '#DC2626' : 'transparent',
+                color: viewMode === 'custom' ? '#FFFFFF' : '#7F1D1D',
+                border: 'none',
+                borderRadius: '4px',
+                padding: '4px 10px',
+                fontSize: '11px',
+                fontWeight: '700',
+                cursor: 'pointer',
+                transition: 'all 0.15s'
+              }}
+              title="Select custom day range"
+            >
+              Custom
+            </button>
           </div>
 
-          {/* Total Summary Badge */}
+          {/* Custom Date Selectors if Custom View selected */}
+          {viewMode === 'custom' && (
+            <div style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '6px', 
+              background: 'rgba(255, 255, 255, 0.85)', 
+              padding: '4px 10px', 
+              borderRadius: 'var(--r-sm)', 
+              border: '1px solid rgba(239, 68, 68, 0.2)',
+              fontSize: '11px',
+              fontWeight: '700',
+              color: '#7F1D1D'
+            }}>
+              <span>From:</span>
+              <select 
+                value={startDay} 
+                onChange={(e) => {
+                  const newStart = e.target.value
+                  setStartDay(newStart)
+                  if (DAYS.indexOf(newStart) > DAYS.indexOf(endDay)) {
+                    setEndDay(newStart)
+                  }
+                }}
+                style={{
+                  background: '#FFFFFF',
+                  border: '1px solid rgba(239, 68, 68, 0.3)',
+                  borderRadius: '4px',
+                  padding: '2px 6px',
+                  fontSize: '11px',
+                  fontWeight: '700',
+                  color: '#991B1B',
+                  cursor: 'pointer'
+                }}
+              >
+                {DAYS.map(d => (
+                  <option key={d} value={d}>{d}</option>
+                ))}
+              </select>
+
+              <span>To:</span>
+              <select 
+                value={endDay} 
+                onChange={(e) => {
+                  const newEnd = e.target.value
+                  setEndDay(newEnd)
+                  if (DAYS.indexOf(newEnd) < DAYS.indexOf(startDay)) {
+                    setStartDay(newEnd)
+                  }
+                }}
+                style={{
+                  background: '#FFFFFF',
+                  border: '1px solid rgba(239, 68, 68, 0.3)',
+                  borderRadius: '4px',
+                  padding: '2px 6px',
+                  fontSize: '11px',
+                  fontWeight: '700',
+                  color: '#991B1B',
+                  cursor: 'pointer'
+                }}
+              >
+                {DAYS.map(d => (
+                  <option key={d} value={d}>{d}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Total Deficit Summary Badge */}
           <div style={{ textAlign: 'right', background: 'rgba(255, 255, 255, 0.85)', padding: '6px 12px', borderRadius: 'var(--r-sm)', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
             <div style={{ fontSize: '10px', fontWeight: '700', color: '#991B1B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Non-Investment ({rangeLabel})
+              Non-Investment Deficit
             </div>
             <div style={{ fontSize: '16px', fontWeight: '800', color: totalLacking > 0 ? '#DC2626' : '#166534' }}>
               {totalLackingHours}h <span style={{ fontSize: '11px', fontWeight: '600', color: '#7F1D1D' }}>lacking</span>
@@ -2042,7 +2142,7 @@ function WeeklyNonInvestmentsTile({ state }) {
         </div>
       </div>
 
-      {/* Grid of Focus Projects & their Lacking Investment Pie Graphs */}
+      {/* Grid of Focus Projects & their Progress Pie Graphs */}
       {projects.length === 0 ? (
         <div style={{ fontSize: '13px', color: '#991B1B', fontStyle: 'italic', padding: '1rem 0' }}>
           No focus projects active.
@@ -2050,111 +2150,170 @@ function WeeklyNonInvestmentsTile({ state }) {
       ) : (
         <div style={{ 
           display: 'grid', 
-          gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', 
+          gridTemplateColumns: viewMode === 'allThree' 
+            ? 'repeat(auto-fill, minmax(320px, 1fr))' 
+            : 'repeat(auto-fill, minmax(220px, 1fr))', 
           gap: '14px' 
         }}>
-          {projectStats.map(({ p, allocHours, spentHours, lackingHours, pctInvested, isFulfilled }) => {
+          {projects.map(p => {
             const cTheme = COLORS[p.color] || COLORS.blue
 
-            return (
-              <div key={p.id} style={{ 
-                background: 'rgba(255, 255, 255, 0.85)', 
-                border: isFulfilled ? '1.5px solid rgba(34, 197, 94, 0.5)' : '1.5px solid rgba(239, 68, 68, 0.25)',
-                borderRadius: 'var(--r-md)',
-                padding: '14px',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: '10px',
-                boxShadow: '0 2px 8px rgba(239, 68, 68, 0.05)'
-              }}>
-                {/* Card Top Row: Project Name & Lacking Badge */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: '6px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '700', fontSize: '13px', color: 'var(--text-1)' }}>
-                    <span style={{ width: '9px', height: '9px', borderRadius: '50%', backgroundColor: cTheme.hex, flexShrink: 0 }} />
-                    <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '110px' }}>{p.name}</span>
-                  </div>
-                  <div style={{ 
-                    fontSize: '10px', 
-                    fontWeight: '800', 
-                    padding: '2px 7px', 
-                    borderRadius: '999px',
-                    background: isFulfilled ? 'rgba(34, 197, 94, 0.12)' : 'rgba(239, 68, 68, 0.12)',
-                    color: isFulfilled ? '#15803D' : '#DC2626',
-                    border: isFulfilled ? '1px solid rgba(34, 197, 94, 0.3)' : '1px solid rgba(239, 68, 68, 0.3)',
-                    flexShrink: 0
-                  }}>
-                    {isFulfilled ? '✓ Target Met' : `${lackingHours}h Lacking`}
-                  </div>
-                </div>
+            if (viewMode === 'allThree') {
+              const todayMetrics = getProjectMetrics(p, [todayKeyName])
+              const soFarMetrics = getProjectMetrics(p, DAYS.slice(0, todayIdx + 1))
+              const wholeMetrics = getProjectMetrics(p, [...DAYS])
 
-                {/* SVG Donut / Pie Progress Chart */}
-                <div style={{ position: 'relative', width: '100px', height: '100px', margin: '2px 0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <svg width="100" height="100" viewBox="0 0 42 42">
-                    {/* Background Circle (Lacking / Non-invested portion) */}
-                    <circle
-                      cx="21"
-                      cy="21"
-                      r="15.91549430918954"
-                      fill="transparent"
-                      stroke="rgba(239, 68, 68, 0.2)"
-                      strokeWidth="4.5"
-                    />
-                    {/* Progress Circle (Invested portion) */}
-                    <circle
-                      cx="21"
-                      cy="21"
-                      r="15.91549430918954"
-                      fill="transparent"
-                      stroke={isFulfilled ? '#22C55E' : cTheme.hex}
-                      strokeWidth="4.5"
-                      strokeDasharray={`${pctInvested} ${100 - pctInvested}`}
-                      strokeDashoffset="25"
-                      strokeLinecap="round"
-                      style={{ transition: 'stroke-dasharray 0.4s ease' }}
-                    />
-                  </svg>
-
-                  {/* Donut Center Content */}
-                  <div style={{ 
-                    position: 'absolute', 
-                    top: 0, left: 0, right: 0, bottom: 0, 
-                    display: 'flex', 
-                    flexDirection: 'column', 
-                    alignItems: 'center', 
-                    justifyContent: 'center',
-                    pointerEvents: 'none'
-                  }}>
-                    <div style={{ fontSize: '14px', fontWeight: '800', color: isFulfilled ? '#166534' : '#991B1B', lineHeight: 1 }}>
-                      {pctInvested}%
-                    </div>
-                    <div style={{ fontSize: '9px', fontWeight: '700', color: '#7F1D1D', marginTop: '3px' }}>
-                      {spentHours}h / {allocHours}h
-                    </div>
-                  </div>
-                </div>
-
-                {/* Hours Summary Legend */}
-                <div style={{ 
-                  width: '100%', 
-                  fontSize: '10px', 
-                  display: 'flex', 
-                  justify: 'space-between', 
-                  alignItems: 'center',
-                  paddingTop: '6px',
-                  borderTop: '1px dashed rgba(239, 68, 68, 0.2)'
+              return (
+                <div key={p.id} style={{ 
+                  background: 'rgba(255, 255, 255, 0.85)', 
+                  border: soFarMetrics.isFulfilled ? '1.5px solid rgba(34, 197, 94, 0.5)' : '1.5px solid rgba(239, 68, 68, 0.25)',
+                  borderRadius: 'var(--r-md)',
+                  padding: '14px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '12px',
+                  boxShadow: '0 2px 8px rgba(239, 68, 68, 0.05)'
                 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontWeight: '600', color: '#166534' }}>
-                    <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: isFulfilled ? '#22C55E' : cTheme.hex }} />
-                    <span>{spentHours}h Done</span>
+                  {/* Card Top Row: Project Name & Badge */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: '6px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '700', fontSize: '14px', color: 'var(--text-1)' }}>
+                      <span style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: cTheme.hex, flexShrink: 0 }} />
+                      <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '140px' }}>{p.name}</span>
+                    </div>
+                    <div style={{ 
+                      fontSize: '10px', 
+                      fontWeight: '800', 
+                      padding: '2px 8px', 
+                      borderRadius: '999px',
+                      background: soFarMetrics.isFulfilled ? 'rgba(34, 197, 94, 0.12)' : 'rgba(239, 68, 68, 0.12)',
+                      color: soFarMetrics.isFulfilled ? '#15803D' : '#DC2626',
+                      border: soFarMetrics.isFulfilled ? '1px solid rgba(34, 197, 94, 0.3)' : '1px solid rgba(239, 68, 68, 0.3)',
+                      flexShrink: 0
+                    }}>
+                      {soFarMetrics.isFulfilled ? '✓ On Track' : `${soFarMetrics.lackingHours}h Lacking (So Far)`}
+                    </div>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontWeight: '600', color: '#DC2626' }}>
-                    <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: 'rgba(239, 68, 68, 0.6)' }} />
-                    <span>{lackingHours}h Lacking</span>
+
+                  {/* 3 Pie Circles Row */}
+                  <div style={{ display: 'flex', justifyContent: 'space-around', alignItems: 'center', gap: '8px', paddingTop: '4px' }}>
+                    {/* Circle 1: Today */}
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px' }}>
+                      <div style={{ fontSize: '10px', fontWeight: '700', color: '#7F1D1D' }}>Today ({todayKeyName})</div>
+                      <div style={{ position: 'relative', width: '75px', height: '75px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <svg width="75" height="75" viewBox="0 0 42 42">
+                          <circle cx="21" cy="21" r="15.91549430918954" fill="transparent" stroke="rgba(239, 68, 68, 0.2)" strokeWidth="4.5" />
+                          <circle cx="21" cy="21" r="15.91549430918954" fill="transparent" stroke={todayMetrics.isFulfilled ? '#22C55E' : cTheme.hex} strokeWidth="4.5" strokeDasharray={`${todayMetrics.pct} ${100 - todayMetrics.pct}`} strokeDashoffset="25" strokeLinecap="round" />
+                        </svg>
+                        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                          <div style={{ fontSize: '11px', fontWeight: '800', color: todayMetrics.isFulfilled ? '#166534' : '#991B1B' }}>{todayMetrics.pct}%</div>
+                          <div style={{ fontSize: '7.5px', fontWeight: '700', color: '#7F1D1D' }}>{todayMetrics.spentHours} / {todayMetrics.allocHours}h</div>
+                        </div>
+                      </div>
+                      <div style={{ fontSize: '9px', fontWeight: '700', color: todayMetrics.isFulfilled ? '#166534' : '#DC2626' }}>
+                        {todayMetrics.isFulfilled ? '✓ Met' : `${todayMetrics.lackingHours}h left`}
+                      </div>
+                    </div>
+
+                    {/* Circle 2: Week So Far */}
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px' }}>
+                      <div style={{ fontSize: '10px', fontWeight: '800', color: '#991B1B' }}>Week So Far</div>
+                      <div style={{ position: 'relative', width: '85px', height: '85px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <svg width="85" height="85" viewBox="0 0 42 42">
+                          <circle cx="21" cy="21" r="15.91549430918954" fill="transparent" stroke="rgba(239, 68, 68, 0.2)" strokeWidth="4.5" />
+                          <circle cx="21" cy="21" r="15.91549430918954" fill="transparent" stroke={soFarMetrics.isFulfilled ? '#22C55E' : cTheme.hex} strokeWidth="4.5" strokeDasharray={`${soFarMetrics.pct} ${100 - soFarMetrics.pct}`} strokeDashoffset="25" strokeLinecap="round" />
+                        </svg>
+                        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                          <div style={{ fontSize: '13px', fontWeight: '800', color: soFarMetrics.isFulfilled ? '#166534' : '#991B1B' }}>{soFarMetrics.pct}%</div>
+                          <div style={{ fontSize: '8px', fontWeight: '700', color: '#7F1D1D' }}>{soFarMetrics.spentHours} / {soFarMetrics.allocHours}h</div>
+                        </div>
+                      </div>
+                      <div style={{ fontSize: '9px', fontWeight: '700', color: soFarMetrics.isFulfilled ? '#166534' : '#DC2626' }}>
+                        {soFarMetrics.isFulfilled ? '✓ On Track' : `${soFarMetrics.lackingHours}h left`}
+                      </div>
+                    </div>
+
+                    {/* Circle 3: Whole Week */}
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px' }}>
+                      <div style={{ fontSize: '10px', fontWeight: '700', color: '#7F1D1D' }}>Whole Week</div>
+                      <div style={{ position: 'relative', width: '75px', height: '75px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <svg width="75" height="75" viewBox="0 0 42 42">
+                          <circle cx="21" cy="21" r="15.91549430918954" fill="transparent" stroke="rgba(239, 68, 68, 0.2)" strokeWidth="4.5" />
+                          <circle cx="21" cy="21" r="15.91549430918954" fill="transparent" stroke={wholeMetrics.isFulfilled ? '#22C55E' : cTheme.hex} strokeWidth="4.5" strokeDasharray={`${wholeMetrics.pct} ${100 - wholeMetrics.pct}`} strokeDashoffset="25" strokeLinecap="round" />
+                        </svg>
+                        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                          <div style={{ fontSize: '11px', fontWeight: '800', color: wholeMetrics.isFulfilled ? '#166534' : '#991B1B' }}>{wholeMetrics.pct}%</div>
+                          <div style={{ fontSize: '7.5px', fontWeight: '700', color: '#7F1D1D' }}>{wholeMetrics.spentHours} / {wholeMetrics.allocHours}h</div>
+                        </div>
+                      </div>
+                      <div style={{ fontSize: '9px', fontWeight: '700', color: wholeMetrics.isFulfilled ? '#166534' : '#DC2626' }}>
+                        {wholeMetrics.isFulfilled ? '✓ Target Met' : `${wholeMetrics.lackingHours}h left`}
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
-            )
+              )
+            } else {
+              // Single Circle View (soFar, wholeWeek, custom)
+              const metrics = getProjectMetrics(p, activeDays)
+
+              return (
+                <div key={p.id} style={{ 
+                  background: 'rgba(255, 255, 255, 0.85)', 
+                  border: metrics.isFulfilled ? '1.5px solid rgba(34, 197, 94, 0.5)' : '1.5px solid rgba(239, 68, 68, 0.25)',
+                  borderRadius: 'var(--r-md)',
+                  padding: '14px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: '10px',
+                  boxShadow: '0 2px 8px rgba(239, 68, 68, 0.05)'
+                }}>
+                  {/* Card Top Row: Project Name & Badge */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: '6px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '700', fontSize: '13px', color: 'var(--text-1)' }}>
+                      <span style={{ width: '9px', height: '9px', borderRadius: '50%', backgroundColor: cTheme.hex, flexShrink: 0 }} />
+                      <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '110px' }}>{p.name}</span>
+                    </div>
+                    <div style={{ 
+                      fontSize: '10px', 
+                      fontWeight: '800', 
+                      padding: '2px 7px', 
+                      borderRadius: '999px',
+                      background: metrics.isFulfilled ? 'rgba(34, 197, 94, 0.12)' : 'rgba(239, 68, 68, 0.12)',
+                      color: metrics.isFulfilled ? '#15803D' : '#DC2626',
+                      border: metrics.isFulfilled ? '1px solid rgba(34, 197, 94, 0.3)' : '1px solid rgba(239, 68, 68, 0.3)',
+                      flexShrink: 0
+                    }}>
+                      {metrics.isFulfilled ? '✓ Target Met' : `${metrics.lackingHours}h Lacking`}
+                    </div>
+                  </div>
+
+                  {/* SVG Donut / Pie Progress Chart */}
+                  <div style={{ position: 'relative', width: '105px', height: '105px', margin: '2px 0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <svg width="105" height="105" viewBox="0 0 42 42">
+                      <circle cx="21" cy="21" r="15.91549430918954" fill="transparent" stroke="rgba(239, 68, 68, 0.2)" strokeWidth="4.5" />
+                      <circle cx="21" cy="21" r="15.91549430918954" fill="transparent" stroke={metrics.isFulfilled ? '#22C55E' : cTheme.hex} strokeWidth="4.5" strokeDasharray={`${metrics.pct} ${100 - metrics.pct}`} strokeDashoffset="25" strokeLinecap="round" style={{ transition: 'stroke-dasharray 0.4s ease' }} />
+                    </svg>
+                    <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+                      <div style={{ fontSize: '15px', fontWeight: '800', color: metrics.isFulfilled ? '#166534' : '#991B1B', lineHeight: 1 }}>{metrics.pct}%</div>
+                      <div style={{ fontSize: '9px', fontWeight: '700', color: '#7F1D1D', marginTop: '3px' }}>{metrics.spentHours}h / {metrics.allocHours}h</div>
+                    </div>
+                  </div>
+
+                  {/* Hours Summary Legend */}
+                  <div style={{ width: '100%', fontSize: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '6px', borderTop: '1px dashed rgba(239, 68, 68, 0.2)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontWeight: '600', color: '#166534' }}>
+                      <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: metrics.isFulfilled ? '#22C55E' : cTheme.hex }} />
+                      <span>{metrics.spentHours}h Done</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontWeight: '600', color: '#DC2626' }}>
+                      <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: 'rgba(239, 68, 68, 0.6)' }} />
+                      <span>{metrics.lackingHours}h Lacking</span>
+                    </div>
+                  </div>
+                </div>
+              )
+            }
           })}
         </div>
       )}
