@@ -2518,7 +2518,7 @@ function TimetableTile({ state, setState, todayKeyName, selectedDay }) {
                           transition: 'all 0.15s',
                           position: 'relative'
                         }}
-                        title={isWorkedSlot ? `🔒 Logged Work: ${displayProj.name} (Locked). Adjust focus card to remove.` : plannedProj ? `Click to remove planned tile ${plannedProj.name}` : selectedBrush ? 'Click to place planned tile' : 'Drag tile here'}
+                        title={isWorkedSlot ? `🔒 Logged Work: ${displayProj.name} (Locked). Adjust focus card to remove.` : displayProj ? `Click to remove planned tile ${displayProj.name}` : selectedBrush ? 'Click to place planned tile' : 'Drag tile here'}
                       >
                         {displayProj ? (
                           <div style={{ 
