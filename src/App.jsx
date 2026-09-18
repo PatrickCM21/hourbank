@@ -187,12 +187,15 @@ function migrateState(s) {
       }
       if (!newP.dailySpent) {
         newP.dailySpent = { Mon: 0, Tue: 0, Wed: 0, Thu: 0, Fri: 0, Sat: 0, Sun: 0 }
-        if (newP.spentCash > 0) {
-          const activeDay = s.selectedDay ?? 'Mon'
-          newP.dailySpent[activeDay] = newP.spentCash
-        }
         pChanged = true
       }
+      // Sanitize corrupted dailySpent values (e.g. >2400 cash = >24 hours per day)
+      DAYS.forEach(d => {
+        if ((newP.dailySpent[d] ?? 0) > 2400) {
+          newP.dailySpent[d] = 0
+          pChanged = true
+        }
+      })
       if (pChanged) migrated = true
       return newP
     })
@@ -974,10 +977,29 @@ function getWeeklyChronologicalSessions(ledger = [], projects = []) {
 
   chronologicalLedger.forEach(entry => {
     if (!entry) return
-    const isFocus = entry.amt < 0 || entry.type === 'neg' || (entry.desc && (entry.desc.includes('Focused for') || entry.desc.includes('Focus on')))
-    if (!isFocus) return
+    
+    // Only process explicit focus work transactions
+    const isExplicitFocus = entry.projId || 
+      (entry.desc && (
+        entry.desc.includes('Focused for') || 
+        entry.desc.includes('Focus on') || 
+        entry.desc.includes('Paid down debt') || 
+        entry.desc.includes('Overpaid budget')
+      ))
+    
+    if (!isExplicitFocus) return
 
-    const day = entry.day || 'Mon'
+    // Determine day - only use entry.day if explicitly present or parsed from desc
+    let day = entry.day
+    if (!day && entry.desc) {
+      const dayMatch = entry.desc.match(/\b(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\b/i)
+      if (dayMatch) {
+        const found = dayMatch[1].charAt(0).toUpperCase() + dayMatch[1].slice(1).toLowerCase()
+        if (DAYS.includes(found)) day = found
+      }
+    }
+    // Skip if day cannot be safely determined (prevents legacy non-day entries from defaulting to Mon)
+    if (!day) return
 
     let proj = null
     if (entry.projId) {
@@ -991,9 +1013,6 @@ function getWeeklyChronologicalSessions(ledger = [], projects = []) {
     }
 
     let hours = entry.hours
-    if (!hours && entry.amt) {
-      hours = Math.abs(entry.amt) / 100
-    }
     if (!hours && entry.desc) {
       const minsMatch = entry.desc.match(/(\d+)m/)
       if (minsMatch) {
@@ -1006,7 +1025,15 @@ function getWeeklyChronologicalSessions(ledger = [], projects = []) {
       }
     }
 
-    if (hours && hours > 0) {
+    if (!hours && entry.amt) {
+      const absAmt = Math.abs(entry.amt)
+      // Only treat amt as hours if reasonable (<= 1200 cash = 12 hours max)
+      if (absAmt <= 1200) {
+        hours = absAmt / 100
+      }
+    }
+
+    if (hours && hours > 0 && hours <= 16) {
       const projName = proj ? proj.name : (entry.projName || 'Focus Work')
       const projColor = proj ? proj.color : 'blue'
       const colorHex = (COLORS[projColor] || COLORS.blue).hex
@@ -1022,9 +1049,12 @@ function getWeeklyChronologicalSessions(ledger = [], projects = []) {
     }
   })
 
+  // Supplementary check for unlogged project dailySpent
   DAYS.forEach(d => {
     projects.forEach(p => {
-      const spentCash = p.dailySpent?.[d] ?? 0
+      const rawSpent = p.dailySpent?.[d] ?? 0
+      // Cap individual daily spent to 16 hours max
+      const spentCash = Math.min(rawSpent, 1600)
       const spentHours = spentCash / 100
       if (spentHours > 0) {
         const loggedHoursForProj = result[d]
