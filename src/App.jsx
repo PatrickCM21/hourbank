@@ -1153,7 +1153,7 @@ function TimMoodStatsModal({ state, onClose }) {
 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '1rem' }}>
           <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-1)' }}>Weekly Chronological Breakdown</h4>
-          <span style={{ fontSize: '0.82rem', color: 'var(--text-3)' }}>Ordered top-to-bottom as completed</span>
+          <span style={{ fontSize: '0.82rem', color: 'var(--text-3)' }}>Ordered bottom-to-top as completed</span>
         </div>
 
         <div 
@@ -1209,7 +1209,7 @@ function TimMoodStatsModal({ state, onClose }) {
                     borderRadius: '8px',
                     overflow: 'hidden',
                     display: 'flex',
-                    flexDirection: 'column',
+                    flexDirection: 'column-reverse',
                     justifyContent: 'flex-start',
                     border: isSelected ? '2px solid var(--accent)' : '1px solid var(--border)',
                     boxShadow: isSelected ? '0 0 8px rgba(0,113,227,0.2)' : 'none',
@@ -1230,7 +1230,7 @@ function TimMoodStatsModal({ state, onClose }) {
                             backgroundColor: sess.colorHex,
                             width: '100%',
                             boxSizing: 'border-box',
-                            borderBottom: idx < sessions.length - 1 ? '1.5px solid rgba(255,255,255,0.3)' : 'none',
+                            borderTop: idx < sessions.length - 1 ? '1.5px solid rgba(255,255,255,0.3)' : 'none',
                             transition: 'opacity 0.15s ease',
                             cursor: 'pointer'
                           }}
