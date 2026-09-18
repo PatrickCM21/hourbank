@@ -964,6 +964,332 @@ function ExcuseModal({ state, setState, onClose, onExecute }) {
   )
 }
 
+function getWeeklyChronologicalSessions(ledger = [], projects = []) {
+  const result = {}
+  DAYS.forEach(d => {
+    result[d] = []
+  })
+
+  const chronologicalLedger = [...ledger].reverse()
+
+  chronologicalLedger.forEach(entry => {
+    if (!entry) return
+    const isFocus = entry.amt < 0 || entry.type === 'neg' || (entry.desc && (entry.desc.includes('Focused for') || entry.desc.includes('Focus on')))
+    if (!isFocus) return
+
+    const day = entry.day || 'Mon'
+
+    let proj = null
+    if (entry.projId) {
+      proj = projects.find(p => p.id === entry.projId)
+    }
+    if (!proj && (entry.projName || entry.desc)) {
+      const nameMatch = entry.projName || (entry.desc && entry.desc.match(/on "([^"]+)"/)?.[1])
+      if (nameMatch) {
+        proj = projects.find(p => p.name.toLowerCase() === nameMatch.toLowerCase())
+      }
+    }
+
+    let hours = entry.hours
+    if (!hours && entry.amt) {
+      hours = Math.abs(entry.amt) / 100
+    }
+    if (!hours && entry.desc) {
+      const minsMatch = entry.desc.match(/(\d+)m/)
+      if (minsMatch) {
+        hours = parseInt(minsMatch[1], 10) / 60
+      } else {
+        const timeMatch = entry.desc.match(/(\d+):(\d+)/)
+        if (timeMatch) {
+          hours = parseInt(timeMatch[1], 10) / 60 + parseInt(timeMatch[2], 10) / 3600
+        }
+      }
+    }
+
+    if (hours && hours > 0) {
+      const projName = proj ? proj.name : (entry.projName || 'Focus Work')
+      const projColor = proj ? proj.color : 'blue'
+      const colorHex = (COLORS[projColor] || COLORS.blue).hex
+
+      result[day].push({
+        id: entry.timestamp || Math.random(),
+        projId: proj ? proj.id : null,
+        projName,
+        hours,
+        colorHex,
+        ts: entry.ts || 'Logged'
+      })
+    }
+  })
+
+  DAYS.forEach(d => {
+    projects.forEach(p => {
+      const spentCash = p.dailySpent?.[d] ?? 0
+      const spentHours = spentCash / 100
+      if (spentHours > 0) {
+        const loggedHoursForProj = result[d]
+          .filter(s => s.projId === p.id || s.projName === p.name)
+          .reduce((sum, s) => sum + s.hours, 0)
+        
+        const diff = spentHours - loggedHoursForProj
+        if (diff > 0.01) {
+          const colorHex = (COLORS[p.color] || COLORS.blue).hex
+          result[d].push({
+            id: `fallback-${p.id}-${d}`,
+            projId: p.id,
+            projName: p.name,
+            hours: diff,
+            colorHex,
+            ts: 'Logged'
+          })
+        }
+      }
+    })
+  })
+
+  return result
+}
+
+function TimMoodStatsModal({ state, onClose }) {
+  const { ledger, projects, mood, selectedDay } = state
+  const sessionsByDay = getWeeklyChronologicalSessions(ledger, projects)
+
+  const dayTotals = {}
+  DAYS.forEach(d => {
+    dayTotals[d] = (sessionsByDay[d] || []).reduce((sum, s) => sum + s.hours, 0)
+  })
+
+  const maxHours = Math.max(4, ...Object.values(dayTotals))
+  const totalWeeklyHours = Object.values(dayTotals).reduce((a, b) => a + b, 0)
+
+  let mostActiveDay = 'Mon'
+  let maxActiveHours = 0
+  DAYS.forEach(d => {
+    if (dayTotals[d] > maxActiveHours) {
+      maxActiveHours = dayTotals[d]
+      mostActiveDay = d
+    }
+  })
+
+  const moodColor = mood === 'ecstatic' ? 'var(--green)' : mood === 'happy' ? 'var(--accent)' : mood === 'curious' ? '#FF9500' : 'var(--red)'
+  const moodEmoji = mood === 'ecstatic' ? '🤩' : mood === 'happy' ? '😌' : mood === 'curious' ? '🤔' : '😔'
+  const moodName = mood === 'ecstatic' ? 'Ecstatic' : mood === 'happy' ? 'Happy' : mood === 'curious' ? 'Curious' : 'Sad'
+
+  const timQuote = mood === 'ecstatic'
+    ? '"Magnificent effort! The bank is booming and your time investments are soaring!"'
+    : mood === 'happy'
+    ? '"Solid consistency. You are making steady progress on your key focus areas."'
+    : mood === 'curious'
+    ? '"A fair start. Let us stay focused and complete our daily allocations."'
+    : '"Time is leaking away! Banker Tim urges you to log your focus sessions."'
+
+  return (
+    <div className="overlay" onClick={onClose}>
+      <div 
+        className="modal-sheet" 
+        style={{ maxWidth: '680px', width: '92%', maxHeight: '90vh', overflowY: 'auto', padding: '1.75rem' }}
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="modal-header" style={{ marginBottom: '1.25rem', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <BarChart3 size={20} style={{ color: 'var(--accent)' }} />
+            <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: '700' }}>Tim's Mood & Weekly Focus Stats</h3>
+          </div>
+          <button className="btn btn-icon btn-sm" onClick={onClose} aria-label="Close"><X size={16} /></button>
+        </div>
+
+        <div 
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '14px',
+            padding: '12px 16px',
+            borderRadius: '12px',
+            background: 'var(--surface-2)',
+            border: `1px solid ${moodColor}40`,
+            marginBottom: '1.5rem'
+          }}
+        >
+          <div style={{ fontSize: '2rem', lineHeight: 1 }}>{moodEmoji}</div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: '0.85rem', fontWeight: 600, color: moodColor, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              Banker Tim is {moodName}
+            </div>
+            <div style={{ fontSize: '0.9rem', fontStyle: 'italic', color: 'var(--text-2)', marginTop: '2px' }}>
+              {timQuote}
+            </div>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '1rem' }}>
+          <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-1)' }}>Weekly Chronological Breakdown</h4>
+          <span style={{ fontSize: '0.82rem', color: 'var(--text-3)' }}>Ordered top-to-bottom as completed</span>
+        </div>
+
+        <div 
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'flex-end',
+            gap: '8px',
+            height: '220px',
+            padding: '16px 12px 10px',
+            background: 'var(--surface-1)',
+            borderRadius: '14px',
+            border: '1px solid var(--border)',
+            marginBottom: '1.5rem'
+          }}
+        >
+          {DAYS.map(d => {
+            const sessions = sessionsByDay[d] || []
+            const dayTotal = dayTotals[d]
+            const isToday = d === todayKey()
+            const isSelected = d === selectedDay
+
+            return (
+              <div 
+                key={d} 
+                style={{ 
+                  flex: 1, 
+                  display: 'flex', 
+                  flexDirection: 'column', 
+                  alignItems: 'center', 
+                  height: '100%',
+                  justifyContent: 'flex-end'
+                }}
+              >
+                <div 
+                  style={{ 
+                    fontSize: '0.75rem', 
+                    fontWeight: '700', 
+                    color: dayTotal > 0 ? 'var(--text-1)' : 'var(--text-3)',
+                    marginBottom: '6px',
+                    height: '16px'
+                  }}
+                >
+                  {dayTotal > 0 ? `${dayTotal % 1 === 0 ? dayTotal : dayTotal.toFixed(1)}h` : ''}
+                </div>
+
+                <div 
+                  style={{
+                    width: '100%',
+                    maxWidth: '42px',
+                    height: '150px',
+                    background: 'var(--surface-2)',
+                    borderRadius: '8px',
+                    overflow: 'hidden',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'flex-start',
+                    border: isSelected ? '2px solid var(--accent)' : '1px solid var(--border)',
+                    boxShadow: isSelected ? '0 0 8px rgba(0,113,227,0.2)' : 'none',
+                    position: 'relative'
+                  }}
+                >
+                  {sessions.length === 0 ? (
+                    <div style={{ flex: 1 }} />
+                  ) : (
+                    sessions.map((sess, idx) => {
+                      const pct = Math.min(100, (sess.hours / maxHours) * 100)
+                      return (
+                        <div
+                          key={sess.id || idx}
+                          title={`${sess.projName}: ${sess.hours % 1 === 0 ? sess.hours : sess.hours.toFixed(1)}h (${sess.ts})`}
+                          style={{
+                            height: `${pct}%`,
+                            backgroundColor: sess.colorHex,
+                            width: '100%',
+                            boxSizing: 'border-box',
+                            borderBottom: idx < sessions.length - 1 ? '1.5px solid rgba(255,255,255,0.3)' : 'none',
+                            transition: 'opacity 0.15s ease',
+                            cursor: 'pointer'
+                          }}
+                          onMouseEnter={e => e.currentTarget.style.opacity = '0.8'}
+                          onMouseLeave={e => e.currentTarget.style.opacity = '1.0'}
+                        />
+                      )
+                    })
+                  )}
+                </div>
+
+                <div 
+                  style={{
+                    marginTop: '8px',
+                    fontSize: '0.78rem',
+                    fontWeight: isSelected || isToday ? '700' : '500',
+                    color: isSelected ? 'var(--accent)' : isToday ? 'var(--text-1)' : 'var(--text-3)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center'
+                  }}
+                >
+                  <span>{d}</span>
+                  {isToday && <div style={{ width: '4px', height: '4px', borderRadius: '50%', background: 'var(--accent)', marginTop: '2px' }} />}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+
+        <div style={{ marginBottom: '1.5rem' }}>
+          <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-2)', marginBottom: '8px' }}>
+            Focus Projects Legend
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+            {projects.map(p => {
+              const theme = COLORS[p.color] || COLORS.blue
+              const totalSpentMins = p.spentCash
+              const totalHours = totalSpentMins / 100
+              return (
+                <div 
+                  key={p.id}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '6px 10px',
+                    borderRadius: '20px',
+                    background: theme.bg,
+                    border: `1px solid ${theme.border}`,
+                    fontSize: '0.8rem',
+                    fontWeight: 500,
+                    color: 'var(--text-1)'
+                  }}
+                >
+                  <span style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: theme.hex }} />
+                  <span>{p.name}</span>
+                  <span style={{ color: 'var(--text-3)', fontWeight: 400 }}>({totalHours % 1 === 0 ? totalHours : totalHours.toFixed(1)}h)</span>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
+          <div style={{ background: 'var(--surface-2)', padding: '12px', borderRadius: '10px', textAlign: 'center' }}>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-3)', fontWeight: 500 }}>Total Weekly Focus</div>
+            <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--accent)', marginTop: '2px' }}>
+              {totalWeeklyHours % 1 === 0 ? totalWeeklyHours : totalWeeklyHours.toFixed(1)} hrs
+            </div>
+          </div>
+          <div style={{ background: 'var(--surface-2)', padding: '12px', borderRadius: '10px', textAlign: 'center' }}>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-3)', fontWeight: 500 }}>Most Active Day</div>
+            <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-1)', marginTop: '2px' }}>
+              {maxActiveHours > 0 ? `${mostActiveDay} (${maxActiveHours % 1 === 0 ? maxActiveHours : maxActiveHours.toFixed(1)}h)` : 'None'}
+            </div>
+          </div>
+          <div style={{ background: 'var(--surface-2)', padding: '12px', borderRadius: '10px', textAlign: 'center' }}>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-3)', fontWeight: 500 }}>Tim's Status</div>
+            <div style={{ fontSize: '1.1rem', fontWeight: 700, color: moodColor, marginTop: '2px' }}>
+              {moodEmoji} {moodName}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function SettingsModal({ state, setState, onClose }) {
   const [wakeHours, setWakeHours] = useState({ ...state.wakeHours })
   const [sleepHours, setSleepHours] = useState({ ...state.sleepHours })
@@ -2237,6 +2563,7 @@ function Dashboard({ state, setState }) {
           loginOpen, user, token, syncStatus } = state
   const [openDropdownProjId, setOpenDropdownProjId] = useState(null)
   const [cycleDropdownOpen, setCycleDropdownOpen] = useState(false)
+  const [statsOpen, setStatsOpen] = useState(false)
 
   const activePhaseKey = state.cyclePhase || 'follicular'
   const activePhaseInfo = CYCLE_PHASES[activePhaseKey]
@@ -2299,7 +2626,17 @@ function Dashboard({ state, setState }) {
         const desc = actualDelta > 0
           ? `Focused for ${timeFormattedAbs} on "${proj.name}"!`
           : `Removed ${timeFormattedAbs} Focus on "${proj.name}"`
-        const entry = { ts: new Date().toLocaleTimeString(), desc, amt: -actualDelta, type: actualDelta > 0 ? 'neg' : 'pos' }
+        const entry = {
+          ts: new Date().toLocaleTimeString(),
+          timestamp: Date.now(),
+          day: s.selectedDay,
+          projId: proj.id,
+          projName: proj.name,
+          hours: Math.abs(actualDelta) / 100,
+          desc,
+          amt: -actualDelta,
+          type: actualDelta > 0 ? 'neg' : 'pos'
+        }
         nextLedger = [entry, ...s.ledger]
       }
 
@@ -2349,7 +2686,17 @@ function Dashboard({ state, setState }) {
         ? `Paid down debt: +30m Focus on "${proj.name}"`
         : `Overpaid budget: +30m Focus on "${proj.name}"`
 
-      const entry = { ts: new Date().toLocaleTimeString(), desc, amt: -cashDelta, type: 'neg' }
+      const entry = {
+        ts: new Date().toLocaleTimeString(),
+        timestamp: Date.now(),
+        day: s.selectedDay,
+        projId: proj.id,
+        projName: proj.name,
+        hours: cashDelta / 100,
+        desc,
+        amt: -cashDelta,
+        type: 'neg'
+      }
 
       return {
         ...s,
@@ -2644,8 +2991,16 @@ function Dashboard({ state, setState }) {
           <div className="stat-label">Today's Budget</div>
           <div className="stat-val blue">${dayBudget}</div>
         </div>
-        <div className="stat-card">
-          <div className="stat-label">Tim's Mood</div>
+        <div 
+          className="stat-card" 
+          onClick={() => setStatsOpen(true)}
+          style={{ cursor: 'pointer', transition: 'all 0.15s ease' }}
+          title="Click to view Tim's Mood & Focus Statistics"
+        >
+          <div className="stat-label" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span>Tim's Mood</span>
+            <BarChart3 size={14} style={{ opacity: 0.7, color: 'var(--accent)' }} />
+          </div>
           <div 
             className="stat-val" 
             style={{ 
@@ -3457,6 +3812,7 @@ function Dashboard({ state, setState }) {
 
       {/* Modals */}
 
+      {statsOpen && <TimMoodStatsModal state={state} onClose={() => setStatsOpen(false)} />}
       {tradeOpen && <TradeModal state={state} setState={setState} onClose={() => setState(s => ({ ...s, tradeOpen: false }))} onExecute={executeTrade} />}
       {borrowOpen && <BorrowModal state={state} setState={setState} onClose={() => setState(s => ({ ...s, borrowOpen: false }))} onExecute={executeBorrow} />}
       {settingsOpen && <SettingsModal state={state} setState={setState} onClose={() => setState(s => ({ ...s, settingsOpen: false }))} />}
