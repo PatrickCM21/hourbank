@@ -2795,7 +2795,7 @@ function WeeklyStatisticsTile({ state }) {
       </div>
 
       {/* Summary Metric Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px' }}>
         <div style={{ background: 'var(--surface-2)', padding: '12px', borderRadius: '12px', textAlign: 'center' }}>
           <div style={{ fontSize: '0.75rem', color: 'var(--text-3)', fontWeight: 500 }}>Total Weekly Focus</div>
           <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--accent)', marginTop: '2px' }}>
@@ -2806,12 +2806,6 @@ function WeeklyStatisticsTile({ state }) {
           <div style={{ fontSize: '0.75rem', color: 'var(--text-3)', fontWeight: 500 }}>Most Active Day</div>
           <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-1)', marginTop: '2px' }}>
             {maxActiveHours > 0 ? `${mostActiveDay} (${maxActiveHours % 1 === 0 ? maxActiveHours : maxActiveHours.toFixed(1)}h)` : 'None'}
-          </div>
-        </div>
-        <div style={{ background: 'var(--surface-2)', padding: '12px', borderRadius: '12px', textAlign: 'center' }}>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-3)', fontWeight: 500 }}>Tim's Status</div>
-          <div style={{ fontSize: '1.1rem', fontWeight: 700, color: moodColor, marginTop: '2px' }}>
-            {moodEmoji} {moodName}
           </div>
         </div>
       </div>
