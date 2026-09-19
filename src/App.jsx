@@ -2345,7 +2345,7 @@ function WeeklyNonInvestmentsTile({ state, selectedDay }) {
       background: 'linear-gradient(135deg, rgba(254, 242, 242, 0.95) 0%, rgba(255, 245, 245, 0.9) 100%)', 
       backdropFilter: 'blur(10px)',
       boxShadow: '0 4px 20px rgba(239, 68, 68, 0.08)',
-      borderRadius: 'var(--r)',
+      borderRadius: '20px',
       marginBottom: '1.5rem'
     }}>
       {/* Header */}
@@ -2366,7 +2366,7 @@ function WeeklyNonInvestmentsTile({ state, selectedDay }) {
             display: 'flex', 
             background: 'rgba(255, 255, 255, 0.85)', 
             padding: '3px', 
-            borderRadius: 'var(--r-sm)', 
+            borderRadius: '12px', 
             border: '1px solid rgba(239, 68, 68, 0.2)',
             gap: '2px'
           }}>
@@ -2376,7 +2376,7 @@ function WeeklyNonInvestmentsTile({ state, selectedDay }) {
                 background: viewMode === 'soFar' ? '#DC2626' : 'transparent',
                 color: viewMode === 'soFar' ? '#FFFFFF' : '#7F1D1D',
                 border: 'none',
-                borderRadius: '4px',
+                borderRadius: '8px',
                 padding: '4px 12px',
                 fontSize: '11px',
                 fontWeight: '700',
@@ -2394,7 +2394,7 @@ function WeeklyNonInvestmentsTile({ state, selectedDay }) {
                 background: viewMode === 'wholeWeek' ? '#DC2626' : 'transparent',
                 color: viewMode === 'wholeWeek' ? '#FFFFFF' : '#7F1D1D',
                 border: 'none',
-                borderRadius: '4px',
+                borderRadius: '8px',
                 padding: '4px 12px',
                 fontSize: '11px',
                 fontWeight: '700',
@@ -2412,7 +2412,7 @@ function WeeklyNonInvestmentsTile({ state, selectedDay }) {
                 background: viewMode === 'allThree' ? '#DC2626' : 'transparent',
                 color: viewMode === 'allThree' ? '#FFFFFF' : '#7F1D1D',
                 border: 'none',
-                borderRadius: '4px',
+                borderRadius: '8px',
                 padding: '4px 12px',
                 fontSize: '11px',
                 fontWeight: '700',
@@ -2426,7 +2426,7 @@ function WeeklyNonInvestmentsTile({ state, selectedDay }) {
           </div>
 
           {/* Total Deficit Summary Badge */}
-          <div style={{ textAlign: 'right', background: 'rgba(255, 255, 255, 0.85)', padding: '6px 12px', borderRadius: 'var(--r-sm)', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
+          <div style={{ textAlign: 'right', background: 'rgba(255, 255, 255, 0.85)', padding: '6px 12px', borderRadius: '12px', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
             <div style={{ fontSize: '10px', fontWeight: '700', color: '#991B1B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
               Non-Investment Deficit
             </div>
@@ -2462,7 +2462,7 @@ function WeeklyNonInvestmentsTile({ state, selectedDay }) {
                 <div key={p.id} style={{ 
                   background: 'rgba(255, 255, 255, 0.85)', 
                   border: soFarMetrics.isFulfilled ? '1.5px solid rgba(34, 197, 94, 0.5)' : '1.5px solid rgba(239, 68, 68, 0.25)',
-                  borderRadius: 'var(--r-md)',
+                  borderRadius: '16px',
                   padding: '14px',
                   display: 'flex',
                   flexDirection: 'column',
@@ -2555,7 +2555,7 @@ function WeeklyNonInvestmentsTile({ state, selectedDay }) {
                 <div key={p.id} style={{ 
                   background: 'rgba(255, 255, 255, 0.85)', 
                   border: metrics.isFulfilled ? '1.5px solid rgba(34, 197, 94, 0.5)' : '1.5px solid rgba(239, 68, 68, 0.25)',
-                  borderRadius: 'var(--r-md)',
+                  borderRadius: '16px',
                   padding: '14px',
                   display: 'flex',
                   flexDirection: 'column',
@@ -2598,12 +2598,6 @@ function WeeklyNonInvestmentsTile({ state, selectedDay }) {
                   {/* Hours Summary Legend */}
                   <div style={{ width: '100%', fontSize: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '6px', borderTop: '1px dashed rgba(239, 68, 68, 0.2)' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontWeight: '600', color: '#166534' }}>
-                      <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: metrics.isFulfilled ? '#22C55E' : cTheme.hex }} />
-                      <span>{metrics.spentHours}h Done</span>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontWeight: '600', color: '#DC2626' }}>
-                      <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: 'rgba(239, 68, 68, 0.6)' }} />
-                      <span>{metrics.lackingHours}h Lacking</span>
                     </div>
                   </div>
                 </div>
@@ -2612,6 +2606,251 @@ function WeeklyNonInvestmentsTile({ state, selectedDay }) {
           })}
         </div>
       )}
+    </div>
+  )
+}
+
+function WeeklyStatisticsTile({ state }) {
+  const { ledger, projects, mood, selectedDay } = state
+  const sessionsByDay = getWeeklyChronologicalSessions(ledger, projects)
+
+  const dayTotals = {}
+  DAYS.forEach(d => {
+    dayTotals[d] = (sessionsByDay[d] || []).reduce((sum, s) => sum + s.hours, 0)
+  })
+
+  const maxHours = Math.max(4, ...Object.values(dayTotals))
+  const totalWeeklyHours = Object.values(dayTotals).reduce((a, b) => a + b, 0)
+
+  let mostActiveDay = 'Mon'
+  let maxActiveHours = 0
+  DAYS.forEach(d => {
+    if (dayTotals[d] > maxActiveHours) {
+      maxActiveHours = dayTotals[d]
+      mostActiveDay = d
+    }
+  })
+
+  const moodColor = mood === 'ecstatic' ? 'var(--green)' : mood === 'happy' ? 'var(--accent)' : mood === 'curious' ? '#FF9500' : 'var(--red)'
+  const moodEmoji = mood === 'ecstatic' ? '🤩' : mood === 'happy' ? '😌' : mood === 'curious' ? '🤔' : '😔'
+  const moodName = mood === 'ecstatic' ? 'Ecstatic' : mood === 'happy' ? 'Happy' : mood === 'curious' ? 'Curious' : 'Sad'
+
+  const timQuote = mood === 'ecstatic'
+    ? '"Magnificent effort! The bank is booming and your time investments are soaring!"'
+    : mood === 'happy'
+    ? '"Solid consistency. You are making steady progress on your key focus areas."'
+    : mood === 'curious'
+    ? '"A fair start. Let us stay focused and complete our daily allocations."'
+    : '"Time is leaking away! Banker Tim urges you to log your focus sessions."'
+
+  return (
+    <div 
+      className="surface" 
+      style={{ 
+        padding: '1.5rem', 
+        border: '1.5px solid var(--border)', 
+        borderRadius: '20px',
+        marginBottom: '1.5rem',
+        boxShadow: 'var(--shadow-sm)'
+      }}
+    >
+      {/* Header */}
+      <div className="section-header" style={{ marginBottom: '1.25rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <span className="section-title" style={{ fontSize: '17px', fontWeight: '800', color: 'var(--text-1)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <BarChart3 size={20} style={{ color: 'var(--accent)' }} />
+          Weekly Focus Statistics
+        </span>
+        <span style={{ fontSize: '12px', fontWeight: '500', color: 'var(--text-3)' }}>
+          Ordered bottom-to-top as completed
+        </span>
+      </div>
+
+      {/* Tim's Mood Banner */}
+      <div 
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '14px',
+          padding: '12px 16px',
+          borderRadius: '16px',
+          background: 'var(--surface-2)',
+          border: `1px solid ${moodColor}40`,
+          marginBottom: '1.5rem'
+        }}
+      >
+        <div style={{ fontSize: '2rem', lineHeight: 1 }}>{moodEmoji}</div>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: '0.85rem', fontWeight: 600, color: moodColor, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+            Banker Tim is {moodName}
+          </div>
+          <div style={{ fontSize: '0.9rem', fontStyle: 'italic', color: 'var(--text-2)', marginTop: '2px' }}>
+            {timQuote}
+          </div>
+        </div>
+      </div>
+
+      {/* 7-Day Bar Chart */}
+      <div 
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'flex-end',
+          gap: '8px',
+          height: '220px',
+          padding: '16px 12px 10px',
+          background: 'var(--surface-1)',
+          borderRadius: '16px',
+          border: '1px solid var(--border)',
+          marginBottom: '1.5rem'
+        }}
+      >
+        {DAYS.map(d => {
+          const sessions = sessionsByDay[d] || []
+          const dayTotal = dayTotals[d]
+          const isToday = d === todayKey()
+          const isSelected = d === selectedDay
+
+          return (
+            <div 
+              key={d} 
+              style={{ 
+                flex: 1, 
+                display: 'flex', 
+                flexDirection: 'column', 
+                alignItems: 'center', 
+                height: '100%',
+                justifyContent: 'flex-end'
+              }}
+            >
+              <div 
+                style={{ 
+                  fontSize: '0.75rem', 
+                  fontWeight: '700', 
+                  color: dayTotal > 0 ? 'var(--text-1)' : 'var(--text-3)',
+                  marginBottom: '6px',
+                  height: '16px'
+                }}
+              >
+                {dayTotal > 0 ? `${dayTotal % 1 === 0 ? dayTotal : dayTotal.toFixed(1)}h` : ''}
+              </div>
+
+              <div 
+                style={{
+                  width: '100%',
+                  maxWidth: '42px',
+                  height: '150px',
+                  background: 'var(--surface-2)',
+                  borderRadius: '10px',
+                  overflow: 'hidden',
+                  display: 'flex',
+                  flexDirection: 'column-reverse',
+                  justifyContent: 'flex-start',
+                  border: isSelected ? '2px solid var(--accent)' : '1px solid var(--border)',
+                  boxShadow: isSelected ? '0 0 8px rgba(0,113,227,0.2)' : 'none',
+                  position: 'relative'
+                }}
+              >
+                {sessions.length === 0 ? (
+                  <div style={{ flex: 1 }} />
+                ) : (
+                  sessions.map((sess, idx) => {
+                    const pct = Math.min(100, (sess.hours / maxHours) * 100)
+                    return (
+                      <div
+                        key={sess.id || idx}
+                        title={`${sess.projName}: ${sess.hours % 1 === 0 ? sess.hours : sess.hours.toFixed(1)}h (${sess.ts})`}
+                        style={{
+                          height: `${pct}%`,
+                          backgroundColor: sess.colorHex,
+                          width: '100%',
+                          boxSizing: 'border-box',
+                          borderTop: idx < sessions.length - 1 ? '1.5px solid rgba(255,255,255,0.3)' : 'none',
+                          transition: 'opacity 0.15s ease',
+                          cursor: 'pointer'
+                        }}
+                        onMouseEnter={e => e.currentTarget.style.opacity = '0.8'}
+                        onMouseLeave={e => e.currentTarget.style.opacity = '1.0'}
+                      />
+                    )
+                  })
+                )}
+              </div>
+
+              <div 
+                style={{
+                  marginTop: '8px',
+                  fontSize: '0.78rem',
+                  fontWeight: isSelected || isToday ? '700' : '500',
+                  color: isSelected ? 'var(--accent)' : isToday ? 'var(--text-1)' : 'var(--text-3)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center'
+                }}
+              >
+                <span>{d}</span>
+                {isToday && <div style={{ width: '4px', height: '4px', borderRadius: '50%', background: 'var(--accent)', marginTop: '2px' }} />}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Focus Projects Legend */}
+      <div style={{ marginBottom: '1.25rem' }}>
+        <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-2)', marginBottom: '8px' }}>
+          Focus Projects Legend
+        </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+          {projects.map(p => {
+            const theme = COLORS[p.color] || COLORS.blue
+            const totalSpentMins = p.spentCash
+            const totalHours = totalSpentMins / 100
+            return (
+              <div 
+                key={p.id}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '6px 12px',
+                  borderRadius: '20px',
+                  background: theme.bg,
+                  border: `1px solid ${theme.border}`,
+                  fontSize: '0.8rem',
+                  fontWeight: 500,
+                  color: 'var(--text-1)'
+                }}
+              >
+                <span style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: theme.hex }} />
+                <span>{p.name}</span>
+                <span style={{ color: 'var(--text-3)', fontWeight: 400 }}>({totalHours % 1 === 0 ? totalHours : totalHours.toFixed(1)}h)</span>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* Summary Metric Cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
+        <div style={{ background: 'var(--surface-2)', padding: '12px', borderRadius: '12px', textAlign: 'center' }}>
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-3)', fontWeight: 500 }}>Total Weekly Focus</div>
+          <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--accent)', marginTop: '2px' }}>
+            {totalWeeklyHours % 1 === 0 ? totalWeeklyHours : totalWeeklyHours.toFixed(1)} hrs
+          </div>
+        </div>
+        <div style={{ background: 'var(--surface-2)', padding: '12px', borderRadius: '12px', textAlign: 'center' }}>
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-3)', fontWeight: 500 }}>Most Active Day</div>
+          <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-1)', marginTop: '2px' }}>
+            {maxActiveHours > 0 ? `${mostActiveDay} (${maxActiveHours % 1 === 0 ? maxActiveHours : maxActiveHours.toFixed(1)}h)` : 'None'}
+          </div>
+        </div>
+        <div style={{ background: 'var(--surface-2)', padding: '12px', borderRadius: '12px', textAlign: 'center' }}>
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-3)', fontWeight: 500 }}>Tim's Status</div>
+          <div style={{ fontSize: '1.1rem', fontWeight: 700, color: moodColor, marginTop: '2px' }}>
+            {moodEmoji} {moodName}
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
@@ -3833,69 +4072,9 @@ function Dashboard({ state, setState }) {
 
           {/* Weekly Non-Investments (Focus Target Lacking) Tile */}
           <WeeklyNonInvestmentsTile state={state} />
-      </div>
 
-      {/* Unified Flowing Time City Landscape Breakout */}
-      <FlowingTimeCity overdrafted={overdrafted} dayBudget={dayBudget} daySpent={daySpent} />
-
-      {/* Horizontal Audit Log Ledger Deck */}
-      <div 
-        className="surface" 
-        style={{ 
-          marginTop: '1.5rem', 
-          padding: '1.5rem', 
-          border: '1px solid var(--border)', 
-          background: 'rgba(255, 255, 255, 0.75)', 
-          backdropFilter: 'blur(10px)',
-          boxShadow: 'var(--shadow-sm)'
-        }}
-      >
-        <div className="section-header" style={{ marginBottom: '1.25rem' }}>
-          <span className="section-title" style={{ fontSize: '16px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <Receipt size={18} style={{ color: 'var(--accent)' }} /> 
-            Audit Log Ledger Statements
-          </span>
-          <span style={{ fontSize: '12px', fontWeight: '500', color: 'var(--text-3)' }}>Last 20 active time transactions</span>
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '12px', maxHeight: '240px', overflowY: 'auto', paddingRight: '4px' }}>
-          {ledger.length === 0 ? (
-            <p style={{ fontSize: 13, color: 'var(--text-3)', padding: '1rem 0', gridColumn: '1/-1', textAlign: 'center' }}>
-              No time transactions recorded yet.
-            </p>
-          ) : (
-            ledger.slice(0, 20).map((e, i) => (
-              <div 
-                key={i} 
-                className="ledger-entry" 
-                style={{ 
-                  display: 'flex', 
-                  justifyContent: 'space-between', 
-                  alignItems: 'center', 
-                  padding: '12px 16px', 
-                  background: 'var(--surface-2)', 
-                  borderRadius: '12px',
-                  border: '1px solid var(--border)',
-                  margin: 0
-                }}
-              >
-                <div>
-                  <div className="ledger-desc" style={{ fontWeight: '600', fontSize: '13px', color: 'var(--text-1)' }}>{e.desc}</div>
-                  <div className="ledger-time" style={{ fontSize: '11px', color: 'var(--text-3)', marginTop: '2px' }}>{e.ts}</div>
-                </div>
-                <div 
-                  style={{ 
-                    fontSize: '14px', 
-                    fontWeight: '700',
-                    color: e.type === 'neg' ? 'var(--green)' : e.type === 'pos' ? 'var(--red)' : 'var(--text-3)'
-                  }}
-                >
-                  {e.type === 'pos' ? '+' : e.type === 'neg' ? '−' : ''}${Math.abs(e.amt)}
-                </div>
-              </div>
-            ))
-          )}
-        </div>
+          {/* Weekly Focus Statistics Standalone Tile */}
+          <WeeklyStatisticsTile state={state} />
       </div>
 
       {/* Modals */}
