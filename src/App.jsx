@@ -3239,6 +3239,15 @@ function Dashboard({ state, setState }) {
                   const dailyPct = dailyAlloc > 0 ? (dailySp / dailyAlloc) * 100 : 0
                   const isDailyCompleted = dailySp >= dailyAlloc && dailyAlloc > 0
 
+                  // Time formatting helpers
+                  const spentHoursVal = dailySp / 100
+                  const allocHoursVal = dailyAlloc / 100
+                  const remHoursVal = Math.max(0, (dailyAlloc - dailySp) / 100)
+
+                  const spentHoursStr = spentHoursVal % 1 === 0 ? spentHoursVal : spentHoursVal.toFixed(1)
+                  const allocHoursStr = allocHoursVal % 1 === 0 ? allocHoursVal : allocHoursVal.toFixed(1)
+                  const remHoursStr = remHoursVal % 1 === 0 ? remHoursVal : remHoursVal.toFixed(1)
+
                   const handleAdjust = (delta) => {
                     setState(s => {
                       const updatedProjects = s.projects.map(item => {
@@ -3357,7 +3366,7 @@ function Dashboard({ state, setState }) {
                                   <div style={{ fontSize: '9px', fontWeight: '700', color: 'var(--text-3)', padding: '4px 8px', textTransform: 'uppercase', borderBottom: '1px solid var(--border)', marginBottom: '4px' }}>Today's Budget</div>
                                   {[0, 50, 100, 150, 200, 250, 300, 400, 500].map(amt => {
                                     const hours = amt / 100
-                                    const label = amt === 0 ? '0h (Rest)' : `${hours}h ($${amt})`
+                                    const label = amt === 0 ? '0h (Rest)' : `${hours}h`
                                     return (
                                       <button
                                         key={amt}
@@ -3390,9 +3399,14 @@ function Dashboard({ state, setState }) {
                             </div>
                           </div>
                           
-                          <h3 className="card-name" style={{ marginTop: '10px', fontSize: '16px', fontWeight: '700', color: 'var(--text-3)' }}>
-                            {p.name}
-                          </h3>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px' }}>
+                            <h3 className="card-name" style={{ margin: 0, fontSize: '16px', fontWeight: '700', color: 'var(--text-3)' }}>
+                              {p.name}
+                            </h3>
+                            <div style={{ fontSize: '11px', fontWeight: '600', color: 'var(--text-3)', backgroundColor: 'var(--surface-3)', padding: '3px 7px', borderRadius: '6px' }}>
+                              0h (Rest)
+                            </div>
+                          </div>
                         </div>
 
                         <div style={{ fontSize: '12px', color: 'var(--text-3)', fontStyle: 'italic', margin: '8px 0' }}>
@@ -3457,10 +3471,10 @@ function Dashboard({ state, setState }) {
                               <button 
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  if (confirm(`Discard "${p.name}" for today and redistribute its $${dailyAlloc} budget among other projects?`)) {
+                                  if (confirm(`Discard "${p.name}" for today and redistribute its ${(dailyAlloc / 100).toFixed(1)}h budget among other projects?`)) {
                                     setState(s => {
                                       const nextProjects = redistributeDailyBudget(s.projects, selectedDay, baseDailyAlloc, p.id);
-                                      const desc = `Discarded "${p.name}" today: redistributed $${baseDailyAlloc} budget`;
+                                      const desc = `Discarded "${p.name}" today: redistributed budget`;
                                       const entry = { ts: new Date().toLocaleTimeString(), desc, amt: 0, type: 'neutral' };
                                       return {
                                         ...s,
@@ -3541,7 +3555,7 @@ function Dashboard({ state, setState }) {
                                   <div style={{ fontSize: '9px', fontWeight: '700', color: 'var(--text-3)', padding: '4px 8px', textTransform: 'uppercase', borderBottom: '1px solid var(--border)', marginBottom: '4px' }}>Today's Budget</div>
                                   {[0, 50, 100, 150, 200, 250, 300, 400, 500].map(amt => {
                                     const hours = amt / 100
-                                    const label = amt === 0 ? '0h (Rest)' : `${hours}h ($${amt})`
+                                    const label = amt === 0 ? '0h (Rest)' : `${hours}h`
                                     return (
                                       <button
                                         key={amt}
@@ -3574,22 +3588,42 @@ function Dashboard({ state, setState }) {
                             </div>
                           </div>
                         </div>
-                        <h3 className="card-name" style={{ marginTop: '10px', fontSize: '16px', fontWeight: '700', color: 'var(--text-1)' }}>
-                          {p.name}
-                        </h3>
+                        
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px' }}>
+                          <h3 className="card-name" style={{ margin: 0, fontSize: '16px', fontWeight: '700', color: 'var(--text-1)' }}>
+                            {p.name}
+                          </h3>
+                          <div 
+                            style={{ 
+                              fontSize: '12px', 
+                              fontWeight: '700', 
+                              color: isDailyCompleted ? 'var(--green)' : theme.hex,
+                              backgroundColor: isDailyCompleted ? 'rgba(52, 199, 89, 0.12)' : theme.bg,
+                              padding: '4px 8px',
+                              borderRadius: '6px',
+                              border: `1px solid ${isDailyCompleted ? 'rgba(52, 199, 89, 0.3)' : theme.border}`
+                            }}
+                          >
+                            {spentHoursStr}h / {allocHoursStr}h
+                          </div>
+                        </div>
                       </div>
                       
                       <div>
                         {/* Custom Progress Bar */}
                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', fontWeight: '600', color: 'var(--text-2)' }}>
-                          <span>Today remaining:</span>
+                          <span>Today's Progress:</span>
                           {dailySp > dailyAlloc && dailyAlloc > 0 ? (
                             <span style={{ color: '#FF9500', fontWeight: '700' }}>
-                              ✓ Completed (+${dailySp - dailyAlloc} borrowed)
+                              ✓ {spentHoursStr}h done (+{((dailySp - dailyAlloc) / 100).toFixed(1)}h extra)
+                            </span>
+                          ) : isDailyCompleted ? (
+                            <span style={{ color: 'var(--green)', fontWeight: '700' }}>
+                              ✓ Completed ({spentHoursStr}h done)
                             </span>
                           ) : (
-                            <span style={{ color: dailyRem === 0 ? 'var(--green)' : 'var(--text-1)', fontWeight: '700' }}>
-                              {dailyRem === 0 ? '✓ Completed' : `$${dailyRem} left`}
+                            <span style={{ color: 'var(--text-1)', fontWeight: '700' }}>
+                              {spentHoursStr}h of {allocHoursStr}h done ({remHoursStr}h left)
                             </span>
                           )}
                         </div>
