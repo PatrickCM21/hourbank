@@ -2611,7 +2611,7 @@ function WeeklyNonInvestmentsTile({ state, selectedDay }) {
 }
 
 function WeeklyStatisticsTile({ state }) {
-  const { ledger, projects, mood, selectedDay } = state
+  const { ledger, projects, selectedDay } = state
   const sessionsByDay = getWeeklyChronologicalSessions(ledger, projects)
 
   const dayTotals = {}
@@ -2630,18 +2630,6 @@ function WeeklyStatisticsTile({ state }) {
       mostActiveDay = d
     }
   })
-
-  const moodColor = mood === 'ecstatic' ? 'var(--green)' : mood === 'happy' ? 'var(--accent)' : mood === 'curious' ? '#FF9500' : 'var(--red)'
-  const moodEmoji = mood === 'ecstatic' ? '🤩' : mood === 'happy' ? '😌' : mood === 'curious' ? '🤔' : '😔'
-  const moodName = mood === 'ecstatic' ? 'Ecstatic' : mood === 'happy' ? 'Happy' : mood === 'curious' ? 'Curious' : 'Sad'
-
-  const timQuote = mood === 'ecstatic'
-    ? '"Magnificent effort! The bank is booming and your time investments are soaring!"'
-    : mood === 'happy'
-    ? '"Solid consistency. You are making steady progress on your key focus areas."'
-    : mood === 'curious'
-    ? '"A fair start. Let us stay focused and complete our daily allocations."'
-    : '"Time is leaking away! Banker Tim urges you to log your focus sessions."'
 
   return (
     <div 
@@ -2663,30 +2651,6 @@ function WeeklyStatisticsTile({ state }) {
         <span style={{ fontSize: '12px', fontWeight: '500', color: 'var(--text-3)' }}>
           Ordered bottom-to-top as completed
         </span>
-      </div>
-
-      {/* Tim's Mood Banner */}
-      <div 
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '14px',
-          padding: '12px 16px',
-          borderRadius: '16px',
-          background: 'var(--surface-2)',
-          border: `1px solid ${moodColor}40`,
-          marginBottom: '1.5rem'
-        }}
-      >
-        <div style={{ fontSize: '2rem', lineHeight: 1 }}>{moodEmoji}</div>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: '0.85rem', fontWeight: 600, color: moodColor, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-            Banker Tim is {moodName}
-          </div>
-          <div style={{ fontSize: '0.9rem', fontStyle: 'italic', color: 'var(--text-2)', marginTop: '2px' }}>
-            {timQuote}
-          </div>
-        </div>
       </div>
 
       {/* 7-Day Bar Chart */}
@@ -3832,29 +3796,13 @@ function Dashboard({ state, setState }) {
                           <h3 className="card-name" style={{ margin: 0, fontSize: '16px', fontWeight: '700', color: 'var(--text-1)' }}>
                             {p.name}
                           </h3>
-                          <div 
-                            style={{ 
-                              fontSize: '12px', 
-                              fontWeight: '700', 
-                              color: isDailyCompleted ? 'var(--green)' : theme.hex,
-                              backgroundColor: isDailyCompleted ? 'rgba(52, 199, 89, 0.12)' : theme.bg,
-                              padding: '4px 8px',
-                              borderRadius: '6px',
-                              border: `1px solid ${isDailyCompleted ? 'rgba(52, 199, 89, 0.3)' : theme.border}`
-                            }}
-                          >
-                            {spentHoursStr}h
-                          </div>
                         </div>
                       </div>
                       
                       <div>
                         {/* Custom Progress Bar */}
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', fontWeight: '600', color: 'var(--text-2)' }}>
-                          <span>Today done:</span>
-                          <span style={{ color: isDailyCompleted ? 'var(--green)' : 'var(--text-1)', fontWeight: '700' }}>
-                            {spentHoursStr}h
-                          </span>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', fontSize: '11px', fontWeight: '700', color: isDailyCompleted ? 'var(--green)' : 'var(--text-1)' }}>
+                          {spentHoursStr}h
                         </div>
                         
                         <div className="proj-progress-wrap" style={{ margin: '8px 0 6px', display: 'flex', overflow: 'hidden', borderRadius: '4px', background: 'var(--border)' }}>
