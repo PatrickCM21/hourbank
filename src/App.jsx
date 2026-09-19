@@ -3404,7 +3404,7 @@ function Dashboard({ state, setState }) {
                               {p.name}
                             </h3>
                             <div style={{ fontSize: '11px', fontWeight: '600', color: 'var(--text-3)', backgroundColor: 'var(--surface-3)', padding: '3px 7px', borderRadius: '6px' }}>
-                              0h (Rest)
+                              0h
                             </div>
                           </div>
                         </div>
@@ -3604,7 +3604,7 @@ function Dashboard({ state, setState }) {
                               border: `1px solid ${isDailyCompleted ? 'rgba(52, 199, 89, 0.3)' : theme.border}`
                             }}
                           >
-                            {spentHoursStr}h / {allocHoursStr}h
+                            {spentHoursStr}h
                           </div>
                         </div>
                       </div>
@@ -3612,20 +3612,10 @@ function Dashboard({ state, setState }) {
                       <div>
                         {/* Custom Progress Bar */}
                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', fontWeight: '600', color: 'var(--text-2)' }}>
-                          <span>Today's Progress:</span>
-                          {dailySp > dailyAlloc && dailyAlloc > 0 ? (
-                            <span style={{ color: '#FF9500', fontWeight: '700' }}>
-                              ✓ {spentHoursStr}h done (+{((dailySp - dailyAlloc) / 100).toFixed(1)}h extra)
-                            </span>
-                          ) : isDailyCompleted ? (
-                            <span style={{ color: 'var(--green)', fontWeight: '700' }}>
-                              ✓ Completed ({spentHoursStr}h done)
-                            </span>
-                          ) : (
-                            <span style={{ color: 'var(--text-1)', fontWeight: '700' }}>
-                              {spentHoursStr}h of {allocHoursStr}h done ({remHoursStr}h left)
-                            </span>
-                          )}
+                          <span>Today done:</span>
+                          <span style={{ color: isDailyCompleted ? 'var(--green)' : 'var(--text-1)', fontWeight: '700' }}>
+                            {spentHoursStr}h
+                          </span>
                         </div>
                         
                         <div className="proj-progress-wrap" style={{ margin: '8px 0 6px', display: 'flex', overflow: 'hidden', borderRadius: '4px', background: 'var(--border)' }}>
