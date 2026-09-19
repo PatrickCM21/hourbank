@@ -977,19 +977,20 @@ function getWeeklyChronologicalSessions(ledger = [], projects = []) {
 
   chronologicalLedger.forEach(entry => {
     if (!entry) return
-    
-    // Only process explicit focus work transactions
-    const isExplicitFocus = entry.projId || 
+
+    const isRemoval = (entry.desc && (entry.desc.includes('Removed') || entry.desc.includes('Discarded'))) || (entry.amt > 0 && entry.type === 'pos' && entry.desc && entry.desc.includes('Focus'))
+    const isFocus = entry.projId || 
       (entry.desc && (
         entry.desc.includes('Focused for') || 
         entry.desc.includes('Focus on') || 
         entry.desc.includes('Paid down debt') || 
-        entry.desc.includes('Overpaid budget')
+        entry.desc.includes('Overpaid budget') ||
+        isRemoval
       ))
-    
-    if (!isExplicitFocus) return
 
-    // Determine day - only use entry.day if explicitly present or parsed from desc
+    if (!isFocus) return
+
+    // Determine day
     let day = entry.day
     if (!day && entry.desc) {
       const dayMatch = entry.desc.match(/\b(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\b/i)
@@ -998,9 +999,9 @@ function getWeeklyChronologicalSessions(ledger = [], projects = []) {
         if (DAYS.includes(found)) day = found
       }
     }
-    // Skip if day cannot be safely determined (prevents legacy non-day entries from defaulting to Mon)
     if (!day) return
 
+    // Determine project
     let proj = null
     if (entry.projId) {
       proj = projects.find(p => p.id === entry.projId)
@@ -1012,6 +1013,9 @@ function getWeeklyChronologicalSessions(ledger = [], projects = []) {
       }
     }
 
+    if (!proj) return
+
+    // Determine hours
     let hours = entry.hours
     if (!hours && entry.desc) {
       const minsMatch = entry.desc.match(/(\d+)m/)
@@ -1027,21 +1031,37 @@ function getWeeklyChronologicalSessions(ledger = [], projects = []) {
 
     if (!hours && entry.amt) {
       const absAmt = Math.abs(entry.amt)
-      // Only treat amt as hours if reasonable (<= 1200 cash = 12 hours max)
       if (absAmt <= 1200) {
         hours = absAmt / 100
       }
     }
 
-    if (hours && hours > 0 && hours <= 16) {
-      const projName = proj ? proj.name : (entry.projName || 'Focus Work')
-      const projColor = proj ? proj.color : 'blue'
-      const colorHex = (COLORS[projColor] || COLORS.blue).hex
+    if (!hours || hours <= 0 || hours > 16) return
 
+    if (isRemoval) {
+      // Deduct hours for this project on this day
+      let hoursToRemove = hours
+      for (let i = result[day].length - 1; i >= 0; i--) {
+        const sess = result[day][i]
+        if (sess.projId === proj.id || sess.projName === proj.name) {
+          if (sess.hours <= hoursToRemove) {
+            hoursToRemove -= sess.hours
+            result[day].splice(i, 1)
+          } else {
+            sess.hours -= hoursToRemove
+            hoursToRemove = 0
+            break
+          }
+        }
+        if (hoursToRemove <= 0) break
+      }
+    } else {
+      // Add focus session
+      const colorHex = (COLORS[proj.color] || COLORS.blue).hex
       result[day].push({
         id: entry.timestamp || Math.random(),
-        projId: proj ? proj.id : null,
-        projName,
+        projId: proj.id,
+        projName: proj.name,
         hours,
         colorHex,
         ts: entry.ts || 'Logged'
@@ -1049,19 +1069,33 @@ function getWeeklyChronologicalSessions(ledger = [], projects = []) {
     }
   })
 
-  // Supplementary check for unlogged project dailySpent
+  // Ground truth check against p.dailySpent[d]
   DAYS.forEach(d => {
     projects.forEach(p => {
       const rawSpent = p.dailySpent?.[d] ?? 0
-      // Cap individual daily spent to 16 hours max
-      const spentCash = Math.min(rawSpent, 1600)
-      const spentHours = spentCash / 100
-      if (spentHours > 0) {
-        const loggedHoursForProj = result[d]
-          .filter(s => s.projId === p.id || s.projName === p.name)
-          .reduce((sum, s) => sum + s.hours, 0)
-        
-        const diff = spentHours - loggedHoursForProj
+      const targetHours = Math.max(0, Math.min(rawSpent, 1600) / 100)
+
+      const pSessions = result[d].filter(s => s.projId === p.id || s.projName === p.name)
+      const currentHours = pSessions.reduce((sum, s) => sum + s.hours, 0)
+
+      if (currentHours > targetHours) {
+        let excess = currentHours - targetHours
+        for (let i = result[d].length - 1; i >= 0; i--) {
+          const sess = result[d][i]
+          if (sess.projId === p.id || sess.projName === p.name) {
+            if (sess.hours <= excess) {
+              excess -= sess.hours
+              result[d].splice(i, 1)
+            } else {
+              sess.hours -= excess
+              excess = 0
+              break
+            }
+          }
+          if (excess <= 0.001) break
+        }
+      } else if (targetHours > currentHours) {
+        const diff = targetHours - currentHours
         if (diff > 0.01) {
           const colorHex = (COLORS[p.color] || COLORS.blue).hex
           result[d].push({
