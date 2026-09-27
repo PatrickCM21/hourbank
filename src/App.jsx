@@ -3073,9 +3073,36 @@ function Dashboard({ state, setState }) {
           <p style={{ fontSize: 13, marginTop: 2, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
             <span>Time is money. Spend it wisely.</span>
             <span style={{ color: 'var(--text-3)' }}>·</span>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: '12px', color: syncStatus === 'error' ? 'var(--red)' : syncStatus === 'syncing' ? 'var(--text-2)' : '#1A7A33', fontWeight: '500' }}>
-              {syncStatus === 'syncing' ? '🔄' : '☁️'} {syncStatus === 'syncing' ? 'Syncing...' : syncStatus === 'error' ? 'Sync Error' : 'Cloud Synced'}
-            </span>
+            <button
+              onClick={() => {
+                if (!token || !user) {
+                  setState(s => ({ ...s, loginOpen: true }))
+                } else if (syncStatus === 'error') {
+                  setState(s => ({ ...s, syncStatus: 'syncing' }))
+                  setTimeout(() => {
+                    setState(s => ({ ...s }))
+                  }, 100)
+                }
+              }}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 4,
+                fontSize: '12px',
+                color: (!token || !user) ? 'var(--text-2)' : syncStatus === 'error' ? 'var(--red)' : syncStatus === 'syncing' ? 'var(--text-2)' : '#1A7A33',
+                fontWeight: '600',
+                background: (!token || !user) ? 'var(--surface-2)' : syncStatus === 'error' ? 'rgba(255, 69, 58, 0.1)' : syncStatus === 'syncing' ? 'var(--surface-2)' : 'rgba(52, 199, 89, 0.1)',
+                border: `1px solid ${(!token || !user) ? 'var(--border)' : syncStatus === 'error' ? 'rgba(255, 69, 58, 0.3)' : syncStatus === 'syncing' ? 'var(--border)' : 'rgba(52, 199, 89, 0.3)'}`,
+                padding: '3px 8px',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                outline: 'none'
+              }}
+              title={(!token || !user) ? 'Local Mode — Click to Log In & Sync to Cloud' : syncStatus === 'error' ? 'Cloud Sync Error — Click to retry' : syncStatus === 'syncing' ? 'Syncing changes to cloud...' : 'All changes synced to cloud'}
+            >
+              {(!token || !user) ? '☁️ Local Mode (Log In)' : syncStatus === 'syncing' ? '🔄 Syncing...' : syncStatus === 'error' ? '⚠️ Sync Error (Retry)' : '☁️ Cloud Synced'}
+            </button>
           </p>
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -4076,14 +4103,19 @@ export default function App() {
               })
             }
           } else {
-            // Token might be invalid or expired and refresh failed
-            setState(s => ({
-              ...s,
-              token: null,
-              refreshToken: null,
-              user: null,
-              syncStatus: 'synced'
-            }))
+            if (res.status === 401) {
+              // Token expired or invalid and refresh failed - clear auth
+              setState(s => ({
+                ...s,
+                token: null,
+                refreshToken: null,
+                user: null,
+                syncStatus: 'synced'
+              }))
+            } else {
+              // Transient error or server unavailable — retain session and show sync error status
+              setState(s => ({ ...s, syncStatus: 'error' }))
+            }
           }
         } catch (_) {
           setState(s => ({ ...s, syncStatus: 'error' }))
@@ -4146,7 +4178,8 @@ export default function App() {
       ledger: state.ledger,
       selectedDay: state.selectedDay,
       history: state.history,
-      lastResetDate: state.lastResetDate
+      lastResetDate: state.lastResetDate,
+      cyclePhase: state.cyclePhase
     }
 
     const timer = setTimeout(async () => {
@@ -4227,7 +4260,9 @@ export default function App() {
     JSON.stringify(state.ledger),
     state.selectedDay,
     JSON.stringify(state.history),
-    state.lastResetDate
+    state.lastResetDate,
+    state.cyclePhase,
+    state.syncStatus
   ])
 
   if (!state.done) return <Onboarding state={state} setState={setState} />
