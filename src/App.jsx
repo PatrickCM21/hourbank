@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import {
-  ChevronUp, ChevronDown, ArrowRight, ArrowLeft,
+  ChevronUp, ChevronDown, ArrowRight, ArrowLeft, ChevronLeft, ChevronRight,
   Play, Pause, X, ArrowLeftRight, Landmark, ShieldCheck, RotateCcw,
   Sliders, CheckCircle2, Clock, Layers, Receipt, Check, AlertCircle,
   History, BarChart3
@@ -108,8 +108,10 @@ function performWeeklyRollover(s) {
       name: p.name,
       allocated: p.allocatedCash,
       spent: p.spentCash,
-      color: p.color
+      color: p.color,
+      dailySpent: { ...(p.dailySpent || {}) }
     })) ?? [],
+    ledger: [...(s.ledger || [])],
     ledgerCount: s.ledger?.length ?? 0
   }
 
@@ -2611,12 +2613,41 @@ function WeeklyNonInvestmentsTile({ state, selectedDay }) {
 }
 
 function WeeklyStatisticsTile({ state }) {
-  const { ledger, projects, selectedDay } = state
-  const sessionsByDay = getWeeklyChronologicalSessions(ledger, projects)
+  const [selectedWeekIdx, setSelectedWeekIdx] = useState(-1) // -1 = Current Active Week
+  const history = state.history || []
+  const pastWeeks = history.slice().reverse()
+
+  const isCurrentWeek = selectedWeekIdx === -1
+  const activePastWeek = !isCurrentWeek ? pastWeeks[selectedWeekIdx] : null
+
+  let activeLedger = state.ledger
+  let activeProjects = state.projects
+
+  if (activePastWeek) {
+    activeLedger = activePastWeek.ledger || []
+    activeProjects = (activePastWeek.projects || []).map((p, i) => {
+      const matchProj = state.projects.find(sp => sp.name.toLowerCase() === p.name.toLowerCase())
+      return {
+        id: matchProj?.id || `hist-${i}`,
+        name: p.name,
+        color: p.color || matchProj?.color || 'blue',
+        allocatedCash: p.allocated ?? p.allocatedCash ?? 0,
+        spentCash: p.spent ?? p.spentCash ?? 0,
+        dailySpent: p.dailySpent || { Mon: 0, Tue: 0, Wed: 0, Thu: 0, Fri: 0, Sat: 0, Sun: 0 }
+      }
+    })
+  }
+
+  const sessionsByDay = getWeeklyChronologicalSessions(activeLedger, activeProjects)
 
   const dayTotals = {}
   DAYS.forEach(d => {
     dayTotals[d] = (sessionsByDay[d] || []).reduce((sum, s) => sum + s.hours, 0)
+    // Fallback calculation for older history entries where ledger was not stored
+    if (dayTotals[d] === 0 && activePastWeek && activePastWeek.projects) {
+      const sumDaily = activePastWeek.projects.reduce((s, p) => s + ((p.dailySpent?.[d] ?? 0) / 100), 0)
+      if (sumDaily > 0) dayTotals[d] = sumDaily
+    }
   })
 
   const maxHours = Math.max(4, ...Object.values(dayTotals))
@@ -2642,22 +2673,117 @@ function WeeklyStatisticsTile({ state }) {
         boxShadow: 'var(--shadow-sm)'
       }}
     >
-      {/* Header */}
-      <div className="section-header" style={{ marginBottom: '1.25rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      {/* Header with Week Selector */}
+      <div className="section-header" style={{ marginBottom: '1.25rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
         <span className="section-title" style={{ fontSize: '17px', fontWeight: '800', color: 'var(--text-1)', display: 'flex', alignItems: 'center', gap: '8px' }}>
           <BarChart3 size={20} style={{ color: 'var(--accent)' }} />
           Weekly Focus Statistics
         </span>
-        <span style={{ fontSize: '12px', fontWeight: '500', color: 'var(--text-3)' }}>
-          Ordered bottom-to-top as completed
-        </span>
+        
+        {/* Week Selector Controls */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <button
+            onClick={() => setSelectedWeekIdx(i => Math.min(pastWeeks.length - 1, i + 1))}
+            disabled={pastWeeks.length === 0 || selectedWeekIdx >= pastWeeks.length - 1}
+            style={{
+              background: 'var(--surface-2)',
+              border: '1px solid var(--border)',
+              borderRadius: '6px',
+              padding: '4px 8px',
+              cursor: (pastWeeks.length === 0 || selectedWeekIdx >= pastWeeks.length - 1) ? 'not-allowed' : 'pointer',
+              opacity: (pastWeeks.length === 0 || selectedWeekIdx >= pastWeeks.length - 1) ? 0.4 : 1,
+              display: 'flex',
+              alignItems: 'center',
+              color: 'var(--text-1)'
+            }}
+            title="View older week"
+          >
+            <ChevronLeft size={14} />
+          </button>
+
+          <select
+            value={selectedWeekIdx}
+            onChange={e => setSelectedWeekIdx(Number(e.target.value))}
+            style={{
+              fontSize: '12px',
+              fontWeight: '700',
+              padding: '4px 10px',
+              borderRadius: '6px',
+              border: '1px solid var(--border)',
+              background: isCurrentWeek ? 'var(--accent-soft)' : 'var(--surface-2)',
+              color: isCurrentWeek ? 'var(--accent)' : 'var(--text-1)',
+              cursor: 'pointer',
+              outline: 'none'
+            }}
+          >
+            <option value={-1}>📅 Current Week (Active)</option>
+            {pastWeeks.map((h, idx) => (
+              <option key={h.id || idx} value={idx}>
+                🗓️ Week of {h.weekStart} – {h.weekEnd} ({(h.totalSpent / 100).toFixed(1)}h)
+              </option>
+            ))}
+          </select>
+
+          <button
+            onClick={() => setSelectedWeekIdx(i => Math.max(-1, i - 1))}
+            disabled={selectedWeekIdx <= -1}
+            style={{
+              background: 'var(--surface-2)',
+              border: '1px solid var(--border)',
+              borderRadius: '6px',
+              padding: '4px 8px',
+              cursor: selectedWeekIdx <= -1 ? 'not-allowed' : 'pointer',
+              opacity: selectedWeekIdx <= -1 ? 0.4 : 1,
+              display: 'flex',
+              alignItems: 'center',
+              color: 'var(--text-1)'
+            }}
+            title="View newer week"
+          >
+            <ChevronRight size={14} />
+          </button>
+        </div>
       </div>
+
+      {/* Historical Week Notice */}
+      {!isCurrentWeek && activePastWeek && (
+        <div style={{
+          display: 'flex',
+          justify: 'space-between',
+          alignItems: 'center',
+          background: 'var(--accent-soft)',
+          border: '1px solid var(--accent)',
+          borderRadius: '10px',
+          padding: '8px 12px',
+          marginBottom: '1rem',
+          fontSize: '12px',
+          fontWeight: '600',
+          color: 'var(--accent)'
+        }}>
+          <span>Viewing Past History: Week of {activePastWeek.weekStart} – {activePastWeek.weekEnd}</span>
+          <button
+            onClick={() => setSelectedWeekIdx(-1)}
+            style={{
+              background: 'var(--accent)',
+              color: '#FFFFFF',
+              border: 'none',
+              borderRadius: '6px',
+              padding: '3px 8px',
+              fontSize: '11px',
+              fontWeight: '700',
+              cursor: 'pointer'
+            }}
+          >
+            Return to Current Week
+          </button>
+        </div>
+      )}
 
       {/* 7-Day Bar Chart */}
       <div 
         style={{
           display: 'flex',
-          justifyContent: 'space-between',
+          justify: 'space-between',
           alignItems: 'flex-end',
           gap: '8px',
           height: '220px',
@@ -2671,8 +2797,8 @@ function WeeklyStatisticsTile({ state }) {
         {DAYS.map(d => {
           const sessions = sessionsByDay[d] || []
           const dayTotal = dayTotals[d]
-          const isToday = d === todayKey()
-          const isSelected = d === selectedDay
+          const isToday = isCurrentWeek && d === todayKey()
+          const isSelected = isCurrentWeek && d === state.selectedDay
 
           return (
             <div 
@@ -2765,7 +2891,7 @@ function WeeklyStatisticsTile({ state }) {
           Focus Projects Legend
         </div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-          {projects.map(p => {
+          {activeProjects.map(p => {
             const theme = COLORS[p.color] || COLORS.blue
             const totalSpentMins = p.spentCash
             const totalHours = totalSpentMins / 100
