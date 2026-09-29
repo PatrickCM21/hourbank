@@ -4142,6 +4142,8 @@ export default function App() {
     return makeDefault()
   })
 
+  const lastSyncedPayloadRef = useRef('')
+
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
   }, [state])
@@ -4219,6 +4221,7 @@ export default function App() {
           if (res.ok) {
             const data = await res.json()
             if (data.state) {
+              lastSyncedPayloadRef.current = JSON.stringify(data.state)
               setState(s => {
                 const migrated = migrateState({ ...s, ...data.state })
                 migrated.selectedDay = todayKey()
@@ -4308,6 +4311,16 @@ export default function App() {
       cyclePhase: state.cyclePhase
     }
 
+    const payloadString = JSON.stringify(payload)
+
+    // Avoid redundant network sync if payload is identical to last sync
+    if (payloadString === lastSyncedPayloadRef.current) {
+      if (state.syncStatus === 'syncing') {
+        setState(s => ({ ...s, syncStatus: 'synced' }))
+      }
+      return
+    }
+
     const timer = setTimeout(async () => {
       try {
         setState(s => ({ ...s, syncStatus: 'syncing' }))
@@ -4343,6 +4356,7 @@ export default function App() {
         }
 
         if (res.ok) {
+          lastSyncedPayloadRef.current = payloadString
           setState(s => ({ ...s, syncStatus: 'synced' }))
         } else {
           if (res.status === 401) {
@@ -4387,8 +4401,7 @@ export default function App() {
     state.selectedDay,
     JSON.stringify(state.history),
     state.lastResetDate,
-    state.cyclePhase,
-    state.syncStatus
+    state.cyclePhase
   ])
 
   if (!state.done) return <Onboarding state={state} setState={setState} />
